@@ -133,6 +133,33 @@ cd web && npm install && npm run dev
 
 ---
 
+## 多人开发协作
+
+### 环境一致性
+- **VM 配置**：所有人使用相同规格虚拟机（4核/8GB/80GB/Ubuntu 22.04），第一个人配好后导出 OVA 模板，后续人员直接导入。
+- **Docker 版本**：统一安装 Docker CE 24.x+，镜像版本精确锁定（如 `kafka:7.4.0` 而非 `:latest`）。
+- **依赖锁定**：Python 依赖统一由 `requirements.txt` 管理（精确版本号）；前端依赖由 `web/package.json` + lock 文件管理。新 clone 后必须执行 `pip install -r requirements.txt`。
+- **代码风格**：`.editorconfig` 统一缩进（Python 4空格/前端2空格），所有人共享。
+- **环境变量**：`.env.example` 进 git 跟踪（模板），`.env` 本地不提交。每人首次执行 `cp .env.example .env` 并只修改密码/密钥。
+
+### Git 工作流
+- **分支命名**：`dev-{编号}/feature/{模块名}`（如 `dev-1/feature/heating-monitor`）
+- **不直接改 main**：所有改动通过 PR 合入，PR 至少跑 `pip install -r requirements.txt && pytest`
+- **合并前 rebase**：保持分支与 main 同步，减少冲突
+- **commit 规范**：`feat(模块): 描述` / `fix(模块): 描述` / `chore: 描述`
+
+### 数据库 Schema 一致性
+- MySQL 建表脚本 `config/mysql/heat_init.sql` 在 git 中，MySQL 容器首次启动**自动执行**
+- Hive DDL `config/hive/heat_ddl.sql` 在 git 中，手动执行
+- **规则：任何表结构变更必须通过 git 提交 SQL 文件，禁止手动改库**
+
+### 解耦开发（避免 PR 互相阻塞）
+- **F0 共享脚手架**（`docs/superpowers/plans/F0-shared-scaffold.md`）：main.py 一次性挂载 7 个路由后锁定，之后无人再改
+- **模块独立文件**：每个模块 = `routes_xxx.py` + `services/xxx.py` + 各自 DDL，新增模块不触碰他人文件
+- **消息总线解耦**：Dev-1 采集→Kafka `heat-alarm-topic`→Dev-2 预警引擎消费，双方不共享业务代码
+
+---
+
 ## 关键设计决策
 
 - **混合栈复用**：沿用现有 Python 大数据栈（FastAPI+Kafka+Spark+Hive+ES+sklearn），新增 Vue3 前端；不引入 Java 重写
