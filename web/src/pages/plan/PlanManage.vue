@@ -94,7 +94,7 @@
           <p v-else class="empty">无结构化步骤。</p>
 
           <div class="activate-row">
-            <el-input v-model="operator" placeholder="启动人（可选）" style="max-width: 200px" />
+            <el-input v-model="operator" placeholder="启动人（可选）" maxlength="32" style="max-width: 200px" />
             <el-button
               type="danger"
               :disabled="!canActivate"
