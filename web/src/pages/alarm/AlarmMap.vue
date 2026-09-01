@@ -79,11 +79,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import AlarmCard from "@/components/AlarmCard.vue";
 import StationMap from "@/components/StationMap.vue";
-import { ackAlarm, getAlarms, type AlarmItem } from "@/services/alarm.api";
+import {
+  ackAlarm,
+  getAlarms,
+  isAlarmBackendUnreachable,
+  type AlarmItem,
+} from "@/services/alarm.api";
 import { filterAlarms, stations } from "@/mock/alarm.mock";
 
 const TYPE_LABEL: Record<string, string> = {
@@ -124,6 +129,35 @@ const statusOptions = [
   { value: 3, label: "已关闭" },
 ];
 
+type StationPoint = {
+  stationId: number;
+  name: string;
+  lng: number;
+  lat: number;
+  status: string;
+};
+
+function asNumber(value: number | undefined | null): number | undefined {
+  return typeof value === "number" ? value : undefined;
+}
+
+function collectStations(items: AlarmItem[]): StationPoint[] {
+  const byId = new Map<number, StationPoint>();
+  for (const station of stations) {
+    byId.set(station.stationId, { ...station });
+  }
+  for (const item of items) {
+    if (byId.has(item.stationId)) continue;
+    byId.set(item.stationId, {
+      stationId: item.stationId,
+      name: `换热站 #${item.stationId}`,
+      lng: 0,
+      lat: 0,
+      status: "alarm",
+    });
+  }
+  return [...byId.values()];
+}
 const alarms = ref<AlarmItem[]>([]);
 const loading = ref(false);
 const usingMock = ref(false);
@@ -144,21 +178,8 @@ const levelStats = computed(() =>
   }))
 );
 
-const mapStations = computed(() =>
-  stations.map((station) => {
-    const open = alarms.value.filter(
-      (item) => item.stationId === station.stationId && item.status === 0
-    );
-    const maxLevel = open.reduce((acc, item) => Math.max(acc, item.level), 0);
-    return {
-      ...station,
-      status: maxLevel >= 3 ? "alarm" : maxLevel > 0 ? "warn" : "normal",
-    };
-  })
-);
-
-const stationCards = computed(() =>
-  stations.map((station) => {
+const stationViews = computed(() =>
+  collectStations(alarms.value).map((station) => {
     const open = alarms.value.filter(
       (item) => item.stationId === station.stationId && item.status === 0
     );
@@ -166,10 +187,14 @@ const stationCards = computed(() =>
     return {
       ...station,
       level: maxLevel || 0,
+      status: maxLevel >= 3 ? "alarm" : maxLevel > 0 ? "warn" : "normal",
       label: maxLevel ? `${LEVEL_LABEL[maxLevel]} ×${open.length}` : "无未确认预警",
     };
   })
 );
+
+const mapStations = computed(() => stationViews.value);
+const stationCards = computed(() => stationViews.value);
 
 function typeLabel(type: string) {
   return TYPE_LABEL[type] || type;
@@ -181,7 +206,6 @@ function statusLabel(status: number) {
 
 function toggleLevel(level: number) {
   levelFilter.value = levelFilter.value === level ? undefined : level;
-  loadAlarms();
 }
 
 function focusStation(stationId: number) {
@@ -191,12 +215,17 @@ function focusStation(stationId: number) {
 async function loadAlarms() {
   loading.value = true;
   try {
-    const data = await getAlarms(levelFilter.value, statusFilter.value);
+    const data = await getAlarms(asNumber(levelFilter.value), asNumber(statusFilter.value));
     alarms.value = Array.isArray(data) ? data : [];
     usingMock.value = false;
-  } catch {
-    alarms.value = filterAlarms(levelFilter.value, statusFilter.value);
-    usingMock.value = true;
+  } catch (err) {
+    if (import.meta.env.DEV && isAlarmBackendUnreachable(err)) {
+      alarms.value = filterAlarms(asNumber(levelFilter.value), asNumber(statusFilter.value));
+      usingMock.value = true;
+    } else {
+      alarms.value = [];
+      usingMock.value = false;
+    }
   } finally {
     loading.value = false;
   }
@@ -229,6 +258,8 @@ async function onAck(item: AlarmItem) {
     if (isDialogDismissed(err)) return;
   }
 }
+
+watch([levelFilter, statusFilter], loadAlarms);
 
 onMounted(loadAlarms);
 </script>

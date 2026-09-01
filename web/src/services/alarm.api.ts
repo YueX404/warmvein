@@ -1,3 +1,4 @@
+import axios from "axios";
 import http from "./api";
 
 export interface AlarmItem {
@@ -15,10 +16,15 @@ export interface AlarmItem {
 
 export const getAlarms = (level?: number, status?: number) => {
   const params: Record<string, number> = {};
-  if (level !== undefined) params.level = level;
-  if (status !== undefined) params.status = status;
+  if (typeof level === "number") params.level = level;
+  if (typeof status === "number") params.status = status;
   return http.get<AlarmItem[]>("/alarm/list", { params });
 };
 
 export const ackAlarm = (alarmId: number, operator: string) =>
   http.post<{ ok: boolean; alarmId: number }>("/alarm/ack", { alarmId, operator });
+
+export function isAlarmBackendUnreachable(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false;
+  return !err.response || err.response.status >= 500;
+}

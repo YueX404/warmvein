@@ -105,6 +105,22 @@ def test_alarm_list_rejects_invalid_level(monkeypatch):
     assert response.json()["code"] == 40001
 
 
+def test_alarm_list_rejects_invalid_status(monkeypatch):
+    _patch_db(monkeypatch, _FakeSession())
+    response = client.get("/api/alarm/list", params={"status": 9})
+    assert response.json()["code"] == 40001
+
+
+def test_alarm_list_caps_result_size(monkeypatch):
+    session = _FakeSession(_FakeResult([]))
+    _patch_db(monkeypatch, session)
+    response = client.get("/api/alarm/list")
+    assert response.json()["code"] == 0
+    sql, params = session.calls[0]
+    assert "limit" in sql.lower()
+    assert params.get("limit") == 200
+
+
 def test_alarm_ack_validates_id(monkeypatch):
     _patch_db(monkeypatch, _FakeSession())
     response = client.post("/api/alarm/ack", json={"alarmId": 0, "operator": "x"})

@@ -16,6 +16,7 @@ _LIST_SQL = (
     "SELECT alarm_id, station_id, level, type, root_cause, title, status, created_at "
     "FROM biz_alarm WHERE 1=1"
 )
+_LIST_LIMIT = 200
 
 
 def _fmt_time(value):
@@ -55,7 +56,8 @@ def list_alarms(level: int = None, status: int = None):
     if status is not None:
         sql += " AND status=:status"
         params["status"] = status
-    sql += " ORDER BY created_at DESC"
+    sql += " ORDER BY created_at DESC LIMIT :limit"
+    params["limit"] = _LIST_LIMIT
     with SessionLocal() as session:
         rows = session.execute(text(sql), params).mappings().all()
     return ok([_to_alarm(dict(item)) for item in rows])
