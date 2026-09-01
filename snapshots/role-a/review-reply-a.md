@@ -30,3 +30,5 @@
 
 - `pytest tests/test_patrol.py tests/test_workorder.py -v` → 30 passed
 - `npx vue-tsc --noEmit`（`web/`）→ exit 0
+
+审查修复提交：`1a0103b`。
