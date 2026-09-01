@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter
 
 from response import fail, ok
-from services import workorder
+from services import patrol, workorder
 
 router = APIRouter()
 
@@ -70,3 +70,60 @@ def api_create(body: dict):
 def api_get(order_id: int):
     o = workorder.get_order(order_id)
     return ok(_to_api(o)) if o else fail(40002, "工单不存在")
+
+
+_PATROL_TYPES = {"daily", "special", "emergency"}
+_ASSIGNEE_MAX = 32
+_PLAN_NAME_MAX = 64
+
+
+def _parse_date(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        return None
+    return value
+
+
+def _parse_patrol(body: dict):
+    station_id = body.get("stationId")
+    if type(station_id) is not int or station_id <= 0:
+        return None, "stationId 非法"
+    patrol_type = body.get("patrolType")
+    if not isinstance(patrol_type, str) or patrol_type not in _PATROL_TYPES:
+        return None, "patrolType 非法"
+    assignee = body.get("assignee")
+    if not isinstance(assignee, str):
+        return None, "assignee 非法"
+    assignee = assignee.strip()
+    if not assignee or len(assignee) > _ASSIGNEE_MAX:
+        return None, "assignee 非法"
+    plan_date = _parse_date(body.get("planDate"))
+    if plan_date is None:
+        return None, "planDate 非法"
+    plan_name = body.get("planName", "auto")
+    if plan_name is None:
+        plan_name = "auto"
+    if not isinstance(plan_name, str):
+        return None, "planName 非法"
+    plan_name = plan_name.strip() or "auto"
+    if len(plan_name) > _PLAN_NAME_MAX:
+        return None, "planName 非法"
+    return {
+        "stationId": station_id,
+        "patrolType": patrol_type,
+        "assignee": assignee,
+        "planDate": plan_date,
+        "planName": plan_name,
+    }, None
+
+
+@router.post("/patrol/plan/generate")
+def api_patrol_generate(body: dict):
+    parsed, err = _parse_patrol(body)
+    if err:
+        return fail(40001, err)
+    return ok({"patrolId": patrol.generate_plan(parsed)})
+
