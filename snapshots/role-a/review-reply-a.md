@@ -1,41 +1,52 @@
-# Task-2 审查回复（角色A）
+# Task-3 Code Review 回复
 
-**分支：** `dev-2/feature/task2-alarm-map`  
-**对照：** `docs/审查报告-Dev-2-task2-alarm-map.md`  
-**处理时间：** 2026-09-01
+审查来源：`docs/审查报告-Dev-2-task3-sms-core.md`  
+处理分支：`dev-2/feature/task3-sms-core`
 
-开发窗口先核对报告再改代码。P1-1 关闭按钮 reject `"close"`、P2-2 清空变 `null`、P1-2 的 rowcount=changed 三条在本栈不成立，其余按报告处理。
+## P1 阻断（已修）
 
-## P1
+| 编号 | 处理 |
+|---|---|
+| P1-1 | 抽出 `dispatch_record`：仅 `skip`/`ok` 时 `commit()`；`error`（含 `send_sms` 抛错）不提交，退避 2s 后重试同一条。无法解码的报文当 `skip` 提交，避免毒消息堵分区。测试覆盖 ok/skip 提交、error 重试、抛错不提交、坏 JSON skip+commit。 |
 
-| 编号 | 处理 | 说明 |
-|---|---|---|
-| P1-1 | 修复 | `cancel`/`close` 都 return。API 失败不改 `item.status`、不弹 success。仅 `usingMock===true` 时本地确认。Element Plus 2.14.5 默认关闭按钮也是 `"cancel"`，仍同时识别 `"close"`。commit `3eeea88` |
-| P1-2 | 修复 | `WHERE alarm_id AND status=0`。`rowcount==0` 再按主键查：无行 40002，终态 40001。SQLAlchemy 使用 FOUND_ROWS，原「changed 行误报 40002」不成立，加 `status=0` 后才需要二次查询。commit `9a2f8e9` |
+## P2（已修）
 
-## P2
+| 编号 | 处理 |
+|---|---|
+| P2-1 | `auto_offset_reset="earliest"`，与 Task 1 和 `.env.example` 对齐。 |
+| P2-2 | `handle_notify` 的 vars 增加 `leaderPhone`：报文字段优先，缺省填「请登录平台」，红色模板不再留下 `{leaderPhone}`。不在本 Task 查 `md_organization`。 |
+| P2-3 | 与 P1-1 同一组 `dispatch_record` 单测。 |
+| P2-4 | `_do_send` 包在 try 中，异常视为 `success=False` 进入指数退避；三次仍失败落 `status=3`，`error_msg` 记异常类型。 |
 
-| 编号 | 处理 | 说明 |
-|---|---|---|
-| P2-1 | 修复 | 仅 `import.meta.env.DEV` 且 axios 无响应/5xx 才回落 Mock；业务错误与生产路径空列表。拦截器已 `ElMessage.error`。 |
-| P2-2 | 防御 | EP 2.14.5 `valueOnClear` 默认 `undefined`，清空链不是必现。params 改为 `typeof === "number"`。 |
-| P2-3 | 修复 | `LIMIT 200`，不做分页包装。 |
-| P2-4 | 修复 | 站点 = mock 换热站 ∪ 当前告警 `stationId`，缺经纬度用占位卡片。 |
-| P2-5 | 修复 | `watch([levelFilter, statusFilter], loadAlarms)`。 |
+## P3 / 🔵
 
-P2 合入 commit `1fec805`。
+| 编号 | 处理 |
+|---|---|
+| P3-1 **phone 契约** | **缺合法 11 位手机号则 skip。phone 由上游保证，本消费端不查库补号。** 已合入的 Task 1 `publish_sms` 当前不带 `phone`，本 Task 合入后预警→短信会 skip，这是已知空转，不是短信服务故障。补号属于 Task 1 follow-up 或后续按 `station_id` 查责任人/订阅的独立任务。 |
+| P3-2 | 接受：缺 `stationName` 时回落 `station_id`。上游后续补站名。 |
+| P3-3 | 接受 follow-up：限流非原子、TTL 滑动 24h。本轮不改 Redis 脚本。 |
+| P3-4 | `error_msg` 已随 P2-4 写入。`batch_id` 同秒混批、`get_sender` 未走 `settings.SMS_PROVIDER`、停用模板仍可发、Aliyun stub、冻堵走 `ALARM_RED` 而非 `FROST`：接受或记 follow-up，本轮不改。 |
 
-## P3
+---
 
-| 编号 | 处理 | 说明 |
-|---|---|---|
-| P3-1 | 修复 | Commit 表补齐自验证与审查修复 hash。 |
-| P3-2 | 修复 | 本文件覆盖 Task 1 残留的 `review-reply-a.md`。 |
-| P3-3 | 修复 | 非法 `status`；ack id 断言收为 `40001`；终态 ack `40001`。 |
-| P3-4 | 保留 | FastAPI 422 需改 `main.py` 全局校验处理，F0 冻结，记 follow-up。 |
-| P3-5 | 确认 | 列表 `data` 锁定为数组，与计划和功能开发文档 `alarm[]` 一致，不对齐 api-guide 的 `{total, alarms}`。 |
+## 二次审查（`docs/二次审查报告-Dev-2-task3-sms-core.md`）
 
-## 验证
+结论：**✅ 通过，可以合入。** 首轮 P1/P2 全部关闭。本轮剩余 P3 不改代码。
 
-`pytest tests/test_alarm_routes.py -v` → 11 passed  
-`vue-tsc && vite build` → 通过
+| 编号 | 处理 |
+|---|---|
+| P3-R1 | **接受。** 与已合入 Task 1 `dispatch_record` 同源：`TypeError` 与解码写在同一 `except`。现网 `_do_send` 异常已在服务层消化，模板缺失是 `ValueError`→error 重试。后续 chore 与预警消费一并拆开解码/`handle` 的 try。 |
+| P3-R2 | 提交表补 `038ead0`。 |
+| P3-R3 | **接受。** 网关成功后落库失败会 at-least-once 重发。不去重、不改回失败也 commit。后续若要幂等，用回执或 `batch_id+phone`。 |
+
+---
+
+## Commit
+
+| hash | message |
+|---|---|
+| `e5997b0` | `feat(sms): 短信网关适配/模板/脱敏/限流/重试` |
+| `74d361a` | `docs(task-3): 补齐自验证快照，阶段标记为待审查` |
+| `49d8f96` | `fix(task-3): review反馈 - 发送失败不提交 offset 并重试` |
+| `42e3e0c` | `fix(task-3): review反馈 - earliest/leaderPhone/网关异常重试` |
+| `038ead0` | `docs(task-3): 审查回复，阶段改为待二次审查` |
