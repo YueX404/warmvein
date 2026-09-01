@@ -54,7 +54,7 @@ export const plans = [
     planId: 4,
     name: "第三方破坏应急预案",
     planType: "third_party",
-    alarmLevel: 3,
+    alarmLevel: 2,
     status: 1,
     triggerCondition: "施工占压、盗水或外力破坏",
     steps: [

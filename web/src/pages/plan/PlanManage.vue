@@ -35,8 +35,16 @@
           </el-form-item>
         </el-form>
 
+        <p class="mock-hint">示例目录（Mock，非库内数据；点选仅预览步骤）</p>
         <ul class="catalog">
-          <li v-for="item in plans" :key="item.planId">
+          <li
+            v-for="item in plans"
+            :key="item.planId"
+            role="button"
+            tabindex="0"
+            @click="showMockPlan(item)"
+            @keydown.enter="showMockPlan(item)"
+          >
             <span class="dot" :data-type="item.planType" />
             <strong>{{ item.name }}</strong>
             <em>L{{ item.alarmLevel }}</em>
@@ -89,12 +97,13 @@
             <el-input v-model="operator" placeholder="启动人（可选）" style="max-width: 200px" />
             <el-button
               type="danger"
-              :disabled="!matched.plan_id"
+              :disabled="!canActivate"
               :loading="activating"
               @click="onActivate"
             >
               启动预案
             </el-button>
+            <span v-if="fromMock" class="hint">Mock 预览不可启动，请先接口匹配</span>
             <span v-if="execId" class="exec">执行单 #{{ execId }} 已下达</span>
           </div>
         </template>
@@ -105,7 +114,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import { activatePlan, matchPlan, type PlanRow } from "@/services/plan.api";
 import { plans, type PlanStep } from "@/mock/plan.mock";
 
@@ -123,8 +132,10 @@ const matching = ref(false);
 const activating = ref(false);
 const matched = ref<PlanRow | null>(null);
 const execId = ref<number | null>(null);
+const fromMock = ref(false);
 
 const steps = computed<PlanStep[]>(() => parseSteps(matched.value?.steps));
+const canActivate = computed(() => Boolean(matched.value?.plan_id) && !fromMock.value);
 
 function parseSteps(raw: unknown): PlanStep[] {
   if (Array.isArray(raw)) {
@@ -158,9 +169,23 @@ function tagType(planType: string): "danger" | "warning" | "info" | "success" {
   return "success";
 }
 
+function showMockPlan(item: (typeof plans)[number]) {
+  fromMock.value = true;
+  execId.value = null;
+  matched.value = {
+    plan_id: item.planId,
+    name: item.name,
+    plan_type: item.planType,
+    alarm_level: item.alarmLevel,
+    trigger_condition: item.triggerCondition,
+    steps: item.steps,
+  };
+}
+
 async function onMatch() {
   matching.value = true;
   execId.value = null;
+  fromMock.value = false;
   try {
     matched.value = await matchPlan(alarmType.value, level.value);
   } catch {
@@ -172,12 +197,23 @@ async function onMatch() {
 
 async function onActivate() {
   const planId = matched.value?.plan_id;
-  if (!planId) return;
+  if (!planId || fromMock.value) return;
+  try {
+    await ElMessageBox.confirm("确认启动该预案？将写入一条执行记录。", "启动预案", {
+      type: "warning",
+      confirmButtonText: "启动",
+      cancelButtonText: "取消",
+    });
+  } catch {
+    return;
+  }
   activating.value = true;
   try {
     const data = await activatePlan(planId, undefined, operator.value);
     execId.value = data?.execId ?? null;
     ElMessage.success("预案已启动");
+  } catch {
+    /* interceptor already toasted */
   } finally {
     activating.value = false;
   }
@@ -234,6 +270,12 @@ h2 {
   font-weight: 600;
   color: #e08a3c;
 }
+.mock-hint,
+.hint {
+  margin: 0 0 8px;
+  color: #8aa0ae;
+  font-size: 12px;
+}
 .catalog {
   list-style: none;
   margin: 8px 0 0;
@@ -248,6 +290,12 @@ h2 {
   padding: 10px 0;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-size: 13px;
+  cursor: pointer;
+}
+.catalog li:hover,
+.catalog li:focus {
+  color: #e08a3c;
+  outline: none;
 }
 .catalog em {
   font-style: normal;

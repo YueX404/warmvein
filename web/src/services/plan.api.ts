@@ -6,7 +6,7 @@ export type PlanRow = {
   plan_type: string;
   alarm_level?: number | null;
   trigger_condition?: string;
-  steps?: string;
+  steps?: string | Array<{ step: number; action: string; role: string; resource: string }>;
   resource_list?: string;
   status?: number;
 };
