@@ -44,11 +44,26 @@ def _to_api(order: dict) -> dict:
     }
 
 
+def _parse_create(body: dict):
+    alarm_id = body.get("alarmId")
+    assignee = body.get("assignee")
+    if type(alarm_id) is not int or alarm_id <= 0:
+        return None
+    if not isinstance(assignee, str):
+        return None
+    assignee = assignee.strip()
+    if not assignee or len(assignee) > 32:
+        return None
+    return alarm_id, assignee
+
+
 @router.post("/workorder/create")
 def api_create(body: dict):
-    if not body.get("alarmId") or not body.get("assignee"):
-        return fail(40001, "缺少 alarmId 或 assignee")
-    return ok({"orderId": workorder.create_from_alarm(body["alarmId"], body["assignee"])})
+    parsed = _parse_create(body)
+    if parsed is None:
+        return fail(40001, "参数校验失败")
+    alarm_id, assignee = parsed
+    return ok({"orderId": workorder.create_from_alarm(alarm_id, assignee)})
 
 
 @router.get("/workorder/{order_id}")

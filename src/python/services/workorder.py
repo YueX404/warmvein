@@ -14,6 +14,10 @@ _SELECT_TRACE = (
     "SELECT action, operator, created_at FROM biz_work_order_trace "
     "WHERE order_id=:o ORDER BY created_at, trace_id"
 )
+_INSERT_TRACE = (
+    "INSERT INTO biz_work_order_trace(order_id, action, operator, created_at) "
+    "VALUES(:o,:act,:op,NOW())"
+)
 
 
 def create_from_alarm(alarm_id: int, assignee: str) -> int:
@@ -22,6 +26,7 @@ def create_from_alarm(alarm_id: int, assignee: str) -> int:
         oid = r.lastrowid
         if not oid:
             raise RuntimeError("work order insert returned no id")
+        s.execute(text(_INSERT_TRACE), {"o": oid, "act": "create", "op": "系统"})
         s.commit()
         return oid
 

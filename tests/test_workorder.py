@@ -132,6 +132,52 @@ def test_workorder_create_and_get_via_api():
     assert data["statusName"] == "待派"
     assert data["createdAt"]
     assert data["updatedAt"]
-    assert isinstance(data["trace"], list)
+    assert data["trace"][0]["action"] == "create"
+    assert data["trace"][0]["operator"] == "系统"
     assert "alarm_id" not in data
     assert "order_id" not in data
+
+
+def test_create_writes_trace_row():
+    session = _FakeSession()
+    with patch.object(workorder, "SessionLocal", lambda: session):
+        oid = workorder.create_from_alarm(alarm_id=1, assignee="张三")
+        o = workorder.get_order(oid)
+    assert o["trace"][0]["action"] == "create"
+    assert o["trace"][0]["operator"] == "系统"
+
+
+def test_create_rejects_missing_alarm_id():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"assignee": "张三"})
+    assert r.json()["code"] == 40001
+
+
+def test_create_rejects_missing_assignee():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"alarmId": 1})
+    assert r.json()["code"] == 40001
+
+
+def test_create_rejects_non_int_alarm_id():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"alarmId": "3", "assignee": "张三"})
+    assert r.json()["code"] == 40001
+
+
+def test_create_rejects_bool_alarm_id():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"alarmId": True, "assignee": "张三"})
+    assert r.json()["code"] == 40001
+
+
+def test_create_rejects_blank_assignee():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"alarmId": 1, "assignee": "  "})
+    assert r.json()["code"] == 40001
+
+
+def test_create_rejects_long_assignee():
+    c = TestClient(app)
+    r = c.post("/api/workorder/create", json={"alarmId": 1, "assignee": "a" * 33})
+    assert r.json()["code"] == 40001
