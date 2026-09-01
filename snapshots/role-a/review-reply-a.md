@@ -1,42 +1,47 @@
-# Task-6 Code Review 回复
+# Task-8 审查反馈处理记录
 
-审查来源：`docs/审查报告-Dev-2-task6-workorder.md`  
-处理分支：`dev-2/feature/task6-workorder`
+审查来源：`docs/审查报告-Dev-2-task8-plan.md`  
+处理分支：`dev-2/feature/task8-plan`  
+处理时间：2026-09-01
 
-## P1 阻断（已修）
+## 🔴 阻断性问题
 
-| 编号 | 处理 |
+无。
+
+## 🟡 改进建议
+
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| P2-1 | 修复 | `activate` 改为 `WHERE plan_id=:p AND status=1`。停用视为不存在，路由仍返回 40002。新增 `test_activate_rejects_disabled_plan`。 |
+| P2-2 | 修复 | 路由层校验：`alarmType` 非空字符串且 ≤32；`level` 缺省 2，必须是 1–4 的 int（排除 bool）；`planId` 正整数；`operator` 去空白且 ≤32。非法一律 40001。 |
+| P2-3 | 修复 | `_TYPE_MAP` 增加 `theft→third_party`，并显式写入 `freeze`/`burst`/`third_party` 自身映射。 |
+| P2-4 | 修复 | 目录标注「Mock，非库内数据」；点选仅预览步骤，启动按钮禁用。新增手工种子 `config/mysql/plan_seed.sql`（未改 `heat_init.sql`）。第三方破坏种子级别改为 2，与 Task 1 `steal` 默认级对齐。 |
+| P2-5 | 修复 | 补 `POST /api/plan/match`、`POST /api/plan/activate` 成功路径。FakeSession 对 `biz_plan` / `biz_plan_execution` 表名和列名、以及存在性查询的 `status=1` 做断言。 |
+
+## 🔵 疑问确认
+
+| 编号 | 结论 |
 |---|---|
-| P1-1 | 路由层 `_to_api` 输出 `orderId` / `alarmId` / `assignee` / `status` / `statusName` / `createdAt` / `updatedAt` / `trace`。`get_order` 联查 `biz_work_order_trace`。测试不再断言 `alarm_id`。 |
+| P3-1 | **锁定跟计划走**：响应为 snake_case 单对象（`ok(plan.match(...))`）。不在本 Task 改成 api-guide 的 `{plans:[{planId}]}`。后续改 api-guide 对齐本契约。 |
+| P3-2 | **保持精确匹配**（同级或 `alarm_level IS NULL`）。与计划 SQL 一致。级别覆盖靠种子数据（冻堵 L4、爆管 L4、停暖 L2、第三方 L2），不做「≥ 该级别」。 |
+| P3-3 | **接受管理页不传 alarmId**。已加 `ElMessageBox.confirm`。重复启动仍会写多条执行单（有意：一次启动一条记录）。 |
+| P3-4 | 修复：`onActivate` 增加 `catch`，避免 unhandled rejection。 |
+| P3-5 | 修复：Commit 表补 `8ea5e67` 及后续审查修复提交。 |
+| P3-6 | 保留。非对象 body 走 FastAPI 422 是全站共性，不在本 Task 单独包一层。 |
 
-## P2（已修 / 保留）
+## 验证
 
-| 编号 | 处理 |
-|---|---|
-| P2-1 | `alarmId` 必须是正整数（`type is int`，排除 `bool`）；`assignee` strip 后非空且 ≤32；非法一律 40001。 |
-| P2-2 | 同一事务内插入 `biz_work_order_trace`：`action=create`，`operator=系统`。GET 按 `order_id` 查出 `trace`。 |
-| P2-3 | **本分支不改 `tests/test_scaffold.py`。** 合入前需在 main 单独 chore 放宽空桩断言，或本 PR 依赖该 chore 先合。 |
-| P2-4 | 拆开缺字段 / 非 int / bool / 空白 / 超长用例；INSERT SQL 断言含 `status` 与 `,0,`；API 断言 camelCase。 |
+- `pytest tests/test_plan.py -v` → 19 passed
+- `npx vue-tsc --noEmit`（`web/`）→ exit 0
 
-## P3
+审查修复提交：`5ecbb75`、`1df300a`。文档提交：`c0e5191`。
 
-| 编号 | 处理 |
-|---|---|
-| P3-1 | **有意切片。** 本 Task 子计划只交付 `create_from_alarm` + `get_order` 与两条 API。状态写入 `0=待派`，派单人由调用方传入，没有接单/核验/超时升级接口。状态机流转与智能派单不在本 PR；Task 7 只追加巡检与前端，流转 API 需另开任务。 |
-| P3-2 | 本轮保证冻结契约 `{status, trace}`，并按 P1-1 补齐 mock 所需 camelCase 字段。不返回 `title` / `orderType` / `priority` / `stationId`（计划 SELECT 仅 6 列，创建也未写这些字段）。 |
-| P3-3 | 开发记录 commit 表已补齐。 |
-| P3-4 | 单测仍走 FakeSession。`lastrowid` 为空时抛错，避免 `orderId` 为 `None` 仍 `code=0`。真 MySQL INSERT 冒烟合入后做。 |
+## 二次审查（2026-09-01）
 
----
+来源：`docs/二次审查报告-Dev-2-task8-plan.md`。结论：通过，建议合入。首轮 P2 全部关闭。
 
-处理 commit：`76dbac4`（P1-1）、`19bd4d7`（P2-1/2/4）。
-
----
-
-## 二次审查（`docs/二次审查报告-Dev-2-task6-workorder.md`）
-
-| 编号 | 处理 |
-|---|---|
-| 结论 | ✅ 通过。首轮 P1/P2（本分支代码项）已关闭。 |
-| P2-3 | 维持：合入前在 main chore 放宽 `test_scaffold.py`，本分支不改。 |
-| P3-R1 | 开发记录 commit 表补上 `9ee53e7`。 |
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| P3-R1 | 修复 | Commit 表补 `c0e5191`。 |
+| P3-R2 | 修复 | `plan_seed.sql` 改为按 `plan_type` `WHERE NOT EXISTS`，可重复执行。仍不并入 `heat_init.sql`。 |
+| P3-R3 | 修复 | 启动人输入框 `maxlength="32"`。 |
