@@ -1,16 +1,15 @@
 # 角色A 进度快照
 
-**阶段状态：** 审查通过
+**阶段状态：** Dev-2 并行分支合入 `master`（本批：Task 4 / 5 / 7）
 
-**PR / Task：** Dev-2 Task 4 短信 API 与前端模板管理  
-**分支：** `dev-2/feature/task4-sms-api`  
-**工作区：** `D:\YY\.worktrees\dev-2-feature-task4-sms-api`
+| Task | 分支 | 合入 |
+|---|---|---|
+| 2 | `dev-2/feature/task2-alarm-map` | 预警列表/确认 API + 预警一张图 |
+| 3 | `dev-2/feature/task3-sms-core` | 短信网关/模板/脱敏/限流/重试 |
+| 4 | `dev-2/feature/task4-sms-api` | 短信发送/记录 API + 模板管理页 |
+| 5 | `dev-2/feature/task5-forecast` | 故障预报/寿命预测 + `/forecast/list` |
+| 6 | `dev-2/feature/task6-workorder` | 工单状态机与智能派单 |
+| 7 | `dev-2/feature/task7-patrol` | （合入中）巡检计划 + 工单页面 |
+| 8 | `dev-2/feature/task8-plan` | 预案匹配/启动与前端管理 |
 
-二次审查结论：✅ 通过，建议合入。首轮 🟡 已关闭，本轮无 🔴/🟡。
-
-完整报告：
-
-- 首轮：`docs/审查报告-Dev-2-task4-sms-api.md`
-- 二次：`docs/二次审查报告-Dev-2-task4-sms-api.md`（与 `snapshots/role-a/review-feedback-a.md` 相同）
-
-收尾：手动 push 分支、提 PR。合入时 `snapshots/role-a/*` 以本分支为准。
+各 Task 审查报告在 `docs/`。角色 A 单文件快照在并行合入时冲突，以各分支 `docs/审查报告-*` 为准。

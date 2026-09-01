@@ -1,4 +1,4 @@
-"""Alarm list/ack API tests (Dev-2 Task 2). Kafka consumer and forecast are out of scope."""
+"""Alarm list/ack API tests (Dev-2 Task 2). Kafka consumer is out of scope."""
 
 from datetime import datetime
 
@@ -163,6 +163,7 @@ def test_alarm_ack_success(monkeypatch):
     assert "张三" in params.values()
 
 
-def test_alarm_router_has_no_forecast():
+def test_alarm_router_keeps_list_and_ack():
     paths = {getattr(route, "path", "") for route in routes_alarm.router.routes}
-    assert not any("forecast" in path for path in paths)
+    assert "/alarm/list" in paths
+    assert "/alarm/ack" in paths
