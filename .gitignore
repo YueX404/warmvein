@@ -36,6 +36,7 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.development
 
 # ===========================
 # 训练模型（可复现，不入库）
