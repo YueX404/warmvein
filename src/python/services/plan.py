@@ -4,10 +4,13 @@ from db import SessionLocal
 
 _TYPE_MAP = {
     "frost": "freeze",
+    "freeze": "freeze",
     "leak": "burst",
     "burst": "burst",
     "shutdown": "shutdown",
     "steal": "third_party",
+    "theft": "third_party",
+    "third_party": "third_party",
 }
 
 
@@ -27,8 +30,9 @@ def activate(plan_id: int, alarm_id: int | None = None, operator: str = "") -> i
     if not plan_id:
         return 0
     with SessionLocal() as s:
-        exists = s.execute(text("SELECT plan_id FROM biz_plan WHERE plan_id=:p"),
-                           {"p": plan_id}).first()
+        exists = s.execute(text(
+            "SELECT plan_id FROM biz_plan WHERE plan_id=:p AND status=1"),
+            {"p": plan_id}).first()
         if not exists:
             return 0
         r = s.execute(text(
