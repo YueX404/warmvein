@@ -1,55 +1,45 @@
-# Task-8 开发记录（角色A）
+# Task-7 开发记录（角色A）
 
-**PR / Task：** Dev-2 Task 8 预案匹配/启动与前端管理  
-**分支：** `dev-2/feature/task8-plan`  
-**需求：** `docs/superpowers/plans/Dev-2-task8-plan.md`
+**PR / Task：** Dev-2 Task 7 巡检计划生成与工单页面  
+**分支：** `dev-2/feature/task7-patrol`  
+**工作区：** `D:\YY\.worktrees\dev-2-feature-task7-patrol`（独立 worktree，未切换主仓库 `master`）  
+**需求：** `docs/superpowers/plans/Dev-2-task7-patrol.md`
 
 ## 测试用例
 
 | 用例 | 行为 |
 |---|---|
-| `test_match_frost_high` | frost + 4 → freeze 预案 |
-| `test_match_maps_leak_to_burst` | leak → burst |
-| `test_match_maps_steal_to_third_party` | steal → third_party |
-| `test_match_maps_theft_to_third_party` | theft → third_party |
-| `test_match_maps_shutdown` | shutdown → shutdown |
-| `test_match_empty_returns_type` | 无启用行时 plan_id=None，保留映射类型 |
-| `test_activate_requires_existing` | plan_id=0 → 0 |
-| `test_activate_missing_plan` | 库中无该预案 → 0 |
-| `test_activate_rejects_disabled_plan` | status≠1 不写执行单 |
-| `test_activate_inserts_execution` | 写入 biz_plan_execution，返回 exec_id |
-| `test_plan_match_validates` | POST /api/plan/match 缺 alarmType → 40001 |
-| `test_plan_match_rejects_non_string_type` | alarmType 非字符串 → 40001 |
-| `test_plan_match_rejects_level_out_of_range` | level 越界 → 40001 |
-| `test_plan_match_ok` | 匹配成功返回 plan_id/plan_type |
-| `test_plan_activate_validates` | POST /api/plan/activate 缺 planId → 40001 |
-| `test_plan_activate_rejects_non_positive_id` | planId≤0 → 40001 |
-| `test_plan_activate_rejects_long_operator` | operator>32 → 40001 |
-| `test_plan_activate_not_found` | 预案不存在 → 40002 |
-| `test_plan_activate_ok` | 启动成功返回 execId |
+| `test_generate_plan_returns_id` | FakeSession 插入后返回 id>0 且 commit |
+| `test_generate_plan_writes_biz_patrol` | SQL 写入 `biz_patrol` 必填列，参数映射正确 |
+| `test_generate_plan_defaults_plan_name` | 缺 planName 时写入 `auto` |
+| `test_generate_plan_rejects_missing_id` | lastrowid 为空则抛错且不 commit |
+| `test_patrol_generate_validates` | POST 空 body → 40001 |
+| `test_patrol_generate_ok` | 成功返回 camelCase `patrolId` |
+| `test_patrol_generate_rejects_invalid_type` | patrolType 非 daily/special/emergency → 40001 |
+| `test_patrol_generate_rejects_bool_station` | stationId=True → 40001 |
+| `test_patrol_generate_rejects_string_station` | stationId 字符串 → 40001 |
+| `test_patrol_generate_rejects_blank_assignee` | 空白巡检人 → 40001 |
+| `test_patrol_generate_rejects_long_assignee` | 超过 32 字 → 40001 |
+| `test_patrol_generate_rejects_bad_date` | 日期非 YYYY-MM-DD → 40001 |
+| `test_patrol_generate_accepts_date_object_via_service` | 服务层可接受 date 对象 |
 
 ## 实现进度
 
-- `services/plan.py`：`match` / `activate`；映射含 frost/leak/steal/theft/shutdown 及四类自身词
-- `activate` 仅允许 `status=1`
-- `routes_plan.py`：校验 alarmType/level/planId/operator
-- 前端：匹配/启动；Mock 目录预览不可启动；启动前确认
-- 种子：`config/mysql/plan_seed.sql`（手工，不改 `heat_init.sql`）
+- `services/patrol.py`：`generate_plan(rule) -> int`，插入 `biz_patrol`，status=0
+- `routes_workorder.py`：仅追加 `POST /api/patrol/plan/generate`，保留 Task 6 create/get
+- 前端：工单创建/查询 + 巡检 Tab（`WorkOrder.vue` 引用 `Patrol.vue`），未改 `router/index.ts`
+- `workorder.api.ts`：create / get / generatePatrolPlan
+- Mock：工单票根 + 巡检班表，后端不可达时 DEV 回退
 
 ## Commit
 
 | hash | message |
 |---|---|
-| `2db07a3` | `feat(5.1): 预案匹配/启动与前端管理` |
-| `3d31721` | `fix(task-8): 补齐停暖映射与启动 40002 测试` |
-| `8ea5e67` | `docs(task-8): 补齐自验证快照，阶段标记为待审查` |
-| `5ecbb75` | `fix(task-8): review反馈 - 停用不可启动、入参校验与theft映射` |
-| `1df300a` | `fix(task-8): review反馈 - Mock目录标注、种子SQL与启动确认` |
-| `c0e5191` | `docs(task-8): 审查回复，阶段改为待二次审查` |
+| （待提交） | `feat(9.x): 巡检计划生成与工单页面` |
 
 ## 问题与处理
 
-- 匹配/启动单测用 FakeSession，并对 SQL 表名/列名/`status=1` 做断言；HTTP 成功路径 mock 服务层。
-- `tests/test_scaffold.py` 空路由断言会在本 Task 合入后失败，按索引要求不在本分支改脚手架。
-- 演示闭环需手工执行 `config/mysql/plan_seed.sql`。
-- 审查 P3-1：契约锁定 snake_case 单对象；P3-2：级别精确匹配。
+- 计划 snippet 直连 MySQL；单测沿用 Task 6 FakeSession，避免无库时误报。
+- 契约按子计划：请求扁平 `stationId/patrolType/assignee/planDate`，响应 `{patrolId}`（非 api-guide 的嵌套 `rule` / `planId`）。
+- lastrowid 为空时拒绝 commit，避免返回 0 仍 `code=0`。
+- 主仓库 `D:\YY` 保持 `master`，本 Task 只在 worktree 分支上改文件。
