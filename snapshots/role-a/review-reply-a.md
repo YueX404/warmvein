@@ -1,50 +1,37 @@
-# Task-1 Code Review 回复
+# Task-8 审查反馈处理记录
 
-审查来源：`docs/审查报告-Dev-2-task1-alarm-engine.md`  
-处理分支：`dev-2/feature/task1-alarm-engine`
+审查来源：`docs/审查报告-Dev-2-task8-plan.md`  
+处理分支：`dev-2/feature/task8-plan`  
+处理时间：2026-09-01
 
-## P1 阻断（已修）
+## 🔴 阻断性问题
 
-| 编号 | 处理 |
+无。
+
+## 🟡 改进建议
+
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| P2-1 | 修复 | `activate` 改为 `WHERE plan_id=:p AND status=1`。停用视为不存在，路由仍返回 40002。新增 `test_activate_rejects_disabled_plan`。 |
+| P2-2 | 修复 | 路由层校验：`alarmType` 非空字符串且 ≤32；`level` 缺省 2，必须是 1–4 的 int（排除 bool）；`planId` 正整数；`operator` 去空白且 ≤32。非法一律 40001。 |
+| P2-3 | 修复 | `_TYPE_MAP` 增加 `theft→third_party`，并显式写入 `freeze`/`burst`/`third_party` 自身映射。 |
+| P2-4 | 修复 | 目录标注「Mock，非库内数据」；点选仅预览步骤，启动按钮禁用。新增手工种子 `config/mysql/plan_seed.sql`（未改 `heat_init.sql`）。第三方破坏种子级别改为 2，与 Task 1 `steal` 默认级对齐。 |
+| P2-5 | 修复 | 补 `POST /api/plan/match`、`POST /api/plan/activate` 成功路径。FakeSession 对 `biz_plan` / `biz_plan_execution` 表名和列名、以及存在性查询的 `status=1` 做断言。 |
+
+## 🔵 疑问确认
+
+| 编号 | 结论 |
 |---|---|
-| P1-1 | 抽出 `handle_alarm`；`consume()` 内 JSON 解码与处理包在 try/except，单条失败只打日志。 |
-| P1-2 | **未按「先 INSERT 再 SET」字面实现。** 并发下先写库会产生重复行。改为 `SET NX EX 300` 占窗，INSERT 失败则 `DELETE` key，避免 300 秒黑洞。 |
-| P1-3 | 增加 `__main__`。启动：在 `src/python` 下执行 `python -m consumers.alarm_consumer`。 |
+| P3-1 | **锁定跟计划走**：响应为 snake_case 单对象（`ok(plan.match(...))`）。不在本 Task 改成 api-guide 的 `{plans:[{planId}]}`。后续改 api-guide 对齐本契约。 |
+| P3-2 | **保持精确匹配**（同级或 `alarm_level IS NULL`）。与计划 SQL 一致。级别覆盖靠种子数据（冻堵 L4、爆管 L4、停暖 L2、第三方 L2），不做「≥ 该级别」。 |
+| P3-3 | **接受管理页不传 alarmId**。已加 `ElMessageBox.confirm`。重复启动仍会写多条执行单（有意：一次启动一条记录）。 |
+| P3-4 | 修复：`onActivate` 增加 `catch`，避免 unhandled rejection。 |
+| P3-5 | 修复：Commit 表补 `8ea5e67` 及后续审查修复提交。 |
+| P3-6 | 保留。非对象 body 走 FastAPI 422 是全站共性，不在本 Task 单独包一层。 |
 
-## P2（已修）
+## 验证
 
-| 编号 | 处理 |
-|---|---|
-| P2-1 | bootstrap 改为 `settings.KAFKA_BOOTSTRAP_SERVERS`。 |
-| P2-2 | 模块级复用 `_sms_producer`，进程退出 `close_producer()`；`send().get(timeout=10)` 失败由 `handle_alarm` 记日志。 |
-| P2-3 | 与 P1-2 同一门闩：`SET NX EX 300`。 |
-| P2-4 | Kafka 词表保持 `frost` 等；入库 `to_schema_type`：frost→freeze、imbalance→balance、steal→theft，其余无 schema 对应的进 `other`。 |
-| P2-5 | `_parse_alarm` 校验 `station_id` 可转 int、`alarmType` 为已知非空字符串。 |
-| P2-6 | `handle_alarm` 可注入 Redis / Session / publish；单测覆盖 skip / dedup / 入库映射 / DB 失败释放锁 / SMS 失败。 |
+- `pytest tests/test_plan.py -v` → 19 passed
+- `npx vue-tsc --noEmit`（`web/`）→ exit 0
 
-## P3
-
-| 编号 | 处理 |
-|---|---|
-| P3-1 | 已从 `alarm_engine` 删除未使用的 `redis_client` import。 |
-| P3-2 | `auto_offset_reset="earliest"`，与 `.env.example` 对齐。 |
-| P3-3 | 增加 `DEDUP_WINDOW_SEC` 与 skip/dedup/insert/sms 日志。 |
-| P3-4 | 进度快照改为当前 HEAD。 |
-
-## 计划缺口（保留，不在本轮改算法）
-
-- `judge_level` 仍按类型表覆盖数字 `level`（计划 snippet 如此）。冻堵字符串 `low/medium/high` 走 `risk_level_from_frost`。
-- 类型表最小为 2，蓝色（1）不会从查表产生。
-- `root_cause` 仍存 Kafka `alarmType`。
-- FR-4.1.1 阈值/规则引擎另开任务。
-
----
-
-## 二次审查（`docs/二次审查报告-Dev-2-task1-alarm-engine.md`）
-
-| 编号 | 处理 |
-|---|---|
-| P2-R1 | `enable_auto_commit=False`。抽出 `dispatch_record`：仅 `skip`/`dedup`/`ok` 时 `commit()`；`error` 不提交，退避 2s 后重试同一条。无法解码的报文当 `skip` 提交，避免毒消息堵分区。 |
-| P3-R1 | 仅 `alarm_type == "frost"` 且 `level` 为字符串时走 `risk_level_from_frost`。 |
-| P3-R2 | 开发记录 commit 表补齐。 |
-| P3-R3 | 接受：kill -9 可能留下最多 300s 窗口。 |
+审查修复提交：`5ecbb75`、`1df300a`。
