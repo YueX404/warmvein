@@ -103,7 +103,7 @@ import {
   isWorkorderBackendUnreachable,
   type WorkOrderRow,
 } from "@/services/workorder.api";
-import { findOrder, mockCreateOrder, orders } from "@/mock/workorder.mock";
+import { findOrder, orders } from "@/mock/workorder.mock";
 import PatrolPanel from "./Patrol.vue";
 
 const tab = ref<"order" | "patrol">("order");
@@ -134,14 +134,8 @@ async function onCreate() {
     queryId.value = data.orderId;
     ElMessage.success(`工单 #${data.orderId} 已生成`);
     await loadOrder(data.orderId);
-  } catch (err) {
-    if (import.meta.env.DEV && isWorkorderBackendUnreachable(err)) {
-      const order = mockCreateOrder(alarmId.value, name);
-      usingMock.value = true;
-      current.value = order;
-      queryId.value = order.orderId;
-      ElMessage.success(`已本地开单（Mock）#${order.orderId}`);
-    }
+  } catch {
+    /* interceptor already toasted */
   } finally {
     creating.value = false;
   }

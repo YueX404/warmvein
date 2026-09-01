@@ -26,14 +26,6 @@ export type PatrolPlan = {
   planName: string;
 };
 
-const STATUS_NAME: Record<number, string> = {
-  0: "待派",
-  1: "已派",
-  2: "处置中",
-  3: "待核验",
-  4: "已销号",
-};
-
 export const orders: WorkOrderRow[] = [
   {
     orderId: 101,
@@ -85,39 +77,4 @@ export const patrols: PatrolPlan[] = [
 
 export function findOrder(orderId: number): WorkOrderRow | undefined {
   return orders.find((item) => item.orderId === orderId);
-}
-
-export function mockCreateOrder(alarmId: number, assignee: string): WorkOrderRow {
-  const now = "2026-09-01 12:00:00";
-  const order: WorkOrderRow = {
-    orderId: 200 + orders.length,
-    alarmId,
-    assignee,
-    status: 0,
-    statusName: STATUS_NAME[0],
-    createdAt: now,
-    updatedAt: now,
-    trace: [{ action: "create", operator: "系统", time: now }],
-  };
-  orders.push(order);
-  return order;
-}
-
-export function mockGeneratePatrol(rule: {
-  stationId: number;
-  patrolType: PatrolPlan["patrolType"];
-  assignee: string;
-  planDate: string;
-  planName?: string;
-}): PatrolPlan {
-  const plan: PatrolPlan = {
-    patrolId: 7000 + patrols.length,
-    stationId: rule.stationId,
-    patrolType: rule.patrolType,
-    assignee: rule.assignee,
-    planDate: rule.planDate,
-    planName: rule.planName || "auto",
-  };
-  patrols.push(plan);
-  return plan;
 }

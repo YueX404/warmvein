@@ -99,7 +99,9 @@ def test_generate_plan_rejects_missing_id():
 def test_patrol_generate_validates():
     c = TestClient(app)
     r = c.post("/api/patrol/plan/generate", json={})
-    assert r.json()["code"] == 40001
+    body = r.json()
+    assert body["code"] == 40001
+    assert body["message"] == "stationId 非法"
 
 
 def test_patrol_generate_ok():
@@ -162,6 +164,52 @@ def test_patrol_generate_rejects_bad_date():
     c = TestClient(app)
     r = c.post("/api/patrol/plan/generate", json={
         "stationId": 1, "patrolType": "emergency", "assignee": "李四", "planDate": "09-02"
+    })
+    body = r.json()
+    assert body["code"] == 40001
+    assert body["message"] == "planDate 非法"
+
+
+def test_patrol_generate_rejects_zero_station():
+    c = TestClient(app)
+    r = c.post("/api/patrol/plan/generate", json={
+        "stationId": 0, "patrolType": "daily", "assignee": "李四", "planDate": "2026-09-02"
+    })
+    body = r.json()
+    assert body["code"] == 40001
+    assert body["message"] == "stationId 非法"
+
+
+def test_patrol_generate_rejects_negative_station():
+    c = TestClient(app)
+    r = c.post("/api/patrol/plan/generate", json={
+        "stationId": -1, "patrolType": "daily", "assignee": "李四", "planDate": "2026-09-02"
+    })
+    assert r.json()["code"] == 40001
+
+
+def test_patrol_generate_rejects_long_plan_name():
+    c = TestClient(app)
+    r = c.post("/api/patrol/plan/generate", json={
+        "stationId": 1,
+        "patrolType": "daily",
+        "assignee": "李四",
+        "planDate": "2026-09-02",
+        "planName": "a" * 65,
+    })
+    body = r.json()
+    assert body["code"] == 40001
+    assert body["message"] == "planName 非法"
+
+
+def test_patrol_generate_rejects_non_string_plan_name():
+    c = TestClient(app)
+    r = c.post("/api/patrol/plan/generate", json={
+        "stationId": 1,
+        "patrolType": "daily",
+        "assignee": "李四",
+        "planDate": "2026-09-02",
+        "planName": 12,
     })
     assert r.json()["code"] == 40001
 

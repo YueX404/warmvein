@@ -65,8 +65,8 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
-import { generatePatrolPlan, isWorkorderBackendUnreachable } from "@/services/workorder.api";
-import { mockGeneratePatrol, patrols, type PatrolPlan } from "@/mock/workorder.mock";
+import { generatePatrolPlan } from "@/services/workorder.api";
+import { patrols, type PatrolPlan } from "@/mock/workorder.mock";
 
 const TYPE_LABEL: Record<string, string> = {
   daily: "日常",
@@ -117,19 +117,8 @@ async function onGenerate() {
       planName: name || "auto",
     };
     ElMessage.success(`巡检计划 #${data.patrolId} 已生成`);
-  } catch (err) {
-    if (import.meta.env.DEV && isWorkorderBackendUnreachable(err)) {
-      const plan = mockGeneratePatrol({
-        stationId: stationId.value,
-        patrolType: patrolType.value,
-        assignee: assignee.value.trim(),
-        planDate: planDate.value,
-        planName: name || undefined,
-      });
-      usingMock.value = true;
-      result.value = plan;
-      ElMessage.success(`已本地生成（Mock）#${plan.patrolId}`);
-    }
+  } catch {
+    /* interceptor already toasted */
   } finally {
     submitting.value = false;
   }
