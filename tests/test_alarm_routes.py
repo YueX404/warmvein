@@ -1,4 +1,4 @@
-"""Alarm list/ack API tests (Dev-2 Task 2). Kafka consumer and forecast are out of scope."""
+"""Alarm list/ack API tests (Dev-2 Task 2). Kafka consumer is out of scope."""
 
 from datetime import datetime
 

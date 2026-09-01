@@ -107,7 +107,8 @@ _FORECAST_TYPE_NAME = {
     "energy": "能效预报",
 }
 _FORECAST_SQL = (
-    "SELECT forecast_id, station_id, type, title, risk_level, forecast_date, status, created_at "
+    "SELECT forecast_id, station_id, type, title, risk_level, forecast_date, "
+    "description, suggestion, status, created_at "
     "FROM biz_forecast WHERE (:t IS NULL OR type=:t) "
     "ORDER BY forecast_date DESC LIMIT :limit"
 )
@@ -131,6 +132,8 @@ def _to_forecast(row: dict) -> dict:
         "title": row.get("title"),
         "riskLevel": row.get("risk_level"),
         "forecastDate": _fmt_date(row.get("forecast_date")),
+        "description": row.get("description"),
+        "suggestion": row.get("suggestion"),
         "status": row.get("status"),
         "createdAt": _fmt_time(row.get("created_at")),
     }

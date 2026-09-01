@@ -43,27 +43,27 @@ def test_predict_anomaly_rule_normal(monkeypatch, tmp_path):
     assert result == {"is_anomaly": 0, "model": "rule"}
 
 
-def test_predict_anomaly_uses_ml_when_model_exists(monkeypatch, tmp_path):
-    import joblib
-    from sklearn.ensemble import IsolationForest
+def test_predict_anomaly_uses_trained_pipeline(monkeypatch, tmp_path):
+    import heat_train_model
     import services.forecast as forecast
 
-    model = IsolationForest(n_estimators=8, random_state=42)
-    model.fit([[70, 40, 0.4, 20, 0.01, 18]] * 30)
-    joblib.dump(model, tmp_path / "anomaly_model.pkl")
+    df = heat_train_model.generate_sample_data(n_samples=400, seed=42)
+    model = heat_train_model.train_anomaly_model(df)
+    monkeypatch.setattr(heat_train_model, "MODEL_DIR", str(tmp_path))
     monkeypatch.setattr(forecast, "MODEL_DIR", str(tmp_path))
+    heat_train_model.save_model(model)
     result = forecast.predict_anomaly(
         {
-            "supplyTemp": 70,
+            "supplyTemp": 0.5,
             "returnTemp": 40,
             "pressure": 0.4,
             "flow": 20,
-            "corrosionRate": 0.01,
+            "corrosionRate": 0.15,
             "roomTemp": 18,
         }
     )
     assert result["model"] == "ml"
-    assert result["is_anomaly"] in (0, 1)
+    assert result["is_anomaly"] == 1
 
 
 class _FakeResult:
@@ -101,6 +101,8 @@ def _sample_forecast(**overrides):
         "title": "未来3天冻堵风险",
         "risk_level": "high",
         "forecast_date": date(2026, 9, 2),
+        "description": "预计最低气温-12℃",
+        "suggestion": "提升供水温度至50℃以上",
         "status": 0,
         "created_at": datetime(2026, 8, 31, 14, 30, 0),
     }
@@ -124,6 +126,8 @@ def test_forecast_list(monkeypatch):
     assert body[0]["type"] == "freeze"
     assert body[0]["riskLevel"] == "high"
     assert body[0]["forecastDate"] == "2026-09-02"
+    assert body[0]["description"] == "预计最低气温-12℃"
+    assert body[0]["suggestion"] == "提升供水温度至50℃以上"
     assert body[0]["createdAt"] == "2026-08-31 14:30:00"
 
 
@@ -146,3 +150,37 @@ def test_train_script_feature_columns_match_predictor():
     import heat_train_model
 
     assert tuple(heat_train_model.FEATURE_COLS) == FEATURE_KEYS
+
+
+def test_hive_sql_aliases_f0_columns():
+    import heat_train_model
+
+    sql = " ".join(heat_train_model.HIVE_FEATURE_SQL.split())
+    assert "supply_temp AS supplyTemp" in sql
+    assert "return_temp AS returnTemp" in sql
+    assert "flow_rate AS flow" in sql
+    assert "corrosion_rate AS corrosionRate" in sql
+    assert "room_temp AS roomTemp" in sql
+    assert "unavailable" not in heat_train_model.HIVE_FALLBACK_PREFIX.lower()
+
+
+def test_synthetic_anomalies_are_split():
+    import heat_train_model
+
+    df = heat_train_model.generate_sample_data(n_samples=2000, seed=42)
+    low_temp = df["supplyTemp"] < 5
+    high_corr = df["corrosionRate"] > 0.05
+    assert int(low_temp.sum()) > 0
+    assert int(high_corr.sum()) > 0
+    assert int((low_temp & ~high_corr).sum()) > 0
+    assert int((high_corr & ~low_temp).sum()) > 0
+
+
+def test_default_model_dir_is_absolute_under_repo_root():
+    from pathlib import Path
+    import services.forecast as forecast
+
+    repo_root = Path(__file__).resolve().parents[1]
+    resolved = Path(forecast.MODEL_DIR)
+    assert resolved.is_absolute()
+    assert resolved.parent == repo_root / "models" or resolved.parent == repo_root

@@ -1,11 +1,13 @@
 """Remaining-life estimate and anomaly forecast (sklearn with rule fallback)."""
 
 import os
+from pathlib import Path
 
 import joblib
 import numpy as np
 
-MODEL_DIR = os.getenv("MODEL_DIR", "models")
+from config.settings import settings
+
 FEATURE_KEYS = (
     "supplyTemp",
     "returnTemp",
@@ -14,6 +16,18 @@ FEATURE_KEYS = (
     "corrosionRate",
     "roomTemp",
 )
+
+
+def _resolve_model_dir() -> str:
+    raw = settings.MODEL_DIR
+    path = Path(raw)
+    if path.is_absolute():
+        return str(path)
+    repo_root = Path(__file__).resolve().parents[3]
+    return str((repo_root / raw).resolve())
+
+
+MODEL_DIR = _resolve_model_dir()
 
 
 def remain_life(W_current: float, W_min: float, v_corr: float) -> float:
