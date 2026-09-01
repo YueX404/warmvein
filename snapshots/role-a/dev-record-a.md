@@ -1,55 +1,42 @@
-# Task-8 开发记录（角色A）
+# Task-5 开发记录（角色A）
 
-**PR / Task：** Dev-2 Task 8 预案匹配/启动与前端管理  
-**分支：** `dev-2/feature/task8-plan`  
-**需求：** `docs/superpowers/plans/Dev-2-task8-plan.md`
+**PR / Task：** Dev-2 Task 5 故障预报与寿命预测  
+**分支：** `dev-2/feature/task5-forecast`  
+**需求：** `docs/superpowers/plans/Dev-2-task5-forecast.md`
 
 ## 测试用例
 
 | 用例 | 行为 |
 |---|---|
-| `test_match_frost_high` | frost + 4 → freeze 预案 |
-| `test_match_maps_leak_to_burst` | leak → burst |
-| `test_match_maps_steal_to_third_party` | steal → third_party |
-| `test_match_maps_theft_to_third_party` | theft → third_party |
-| `test_match_maps_shutdown` | shutdown → shutdown |
-| `test_match_empty_returns_type` | 无启用行时 plan_id=None，保留映射类型 |
-| `test_activate_requires_existing` | plan_id=0 → 0 |
-| `test_activate_missing_plan` | 库中无该预案 → 0 |
-| `test_activate_rejects_disabled_plan` | status≠1 不写执行单 |
-| `test_activate_inserts_execution` | 写入 biz_plan_execution，返回 exec_id |
-| `test_plan_match_validates` | POST /api/plan/match 缺 alarmType → 40001 |
-| `test_plan_match_rejects_non_string_type` | alarmType 非字符串 → 40001 |
-| `test_plan_match_rejects_level_out_of_range` | level 越界 → 40001 |
-| `test_plan_match_ok` | 匹配成功返回 plan_id/plan_type |
-| `test_plan_activate_validates` | POST /api/plan/activate 缺 planId → 40001 |
-| `test_plan_activate_rejects_non_positive_id` | planId≤0 → 40001 |
-| `test_plan_activate_rejects_long_operator` | operator>32 → 40001 |
-| `test_plan_activate_not_found` | 预案不存在 → 40002 |
-| `test_plan_activate_ok` | 启动成功返回 execId |
+| `test_remain_life_linear` | (5.0-3.0)/0.1 → 20.0 |
+| `test_remain_life_inf_safe` | v_corr=0 → inf，避免除零 |
+| `test_predict_anomaly_rule_low_supply_temp` | 无模型且 supplyTemp<5 → rule 异常 |
+| `test_predict_anomaly_rule_high_corrosion` | 无模型且 corrosionRate>0.05 → rule 异常 |
+| `test_predict_anomaly_rule_normal` | 无模型且参数正常 → rule 非异常 |
+| `test_predict_anomaly_uses_ml_when_model_exists` | 有 pkl 时走 IsolationForest，model=ml |
+| `test_forecast_list` | GET /api/forecast/list 返回 camelCase 数组 |
+| `test_forecast_list_filters_type` | query `type=lifetime` 绑定 SQL 参数 t |
+| `test_forecast_list_rejects_invalid_type` | 非法 type → 40001 |
+| `test_train_script_feature_columns_match_predictor` | 训练特征列与预测特征键一致 |
+| Task 2 `test_alarm_*` | list/ack 回归，不得破坏 |
 
 ## 实现进度
 
-- `services/plan.py`：`match` / `activate`；映射含 frost/leak/steal/theft/shutdown 及四类自身词
-- `activate` 仅允许 `status=1`
-- `routes_plan.py`：校验 alarmType/level/planId/operator
-- 前端：匹配/启动；Mock 目录预览不可启动；启动前确认
-- 种子：`config/mysql/plan_seed.sql`（手工，不改 `heat_init.sql`）
+- `services/forecast.py`：`remain_life` 线性估算；`predict_anomaly` 无模型走规则、有 `anomaly_model.pkl` 走 sklearn
+- `routes_alarm.py`：仅末尾追加 `GET /forecast/list`（HTTP 参数 `type`），保留 `/alarm/list` `/alarm/ack`；单 `APIRouter()`
+- `heat_train_model.py`：IsolationForest，特征 `supplyTemp, returnTemp, pressure, flow, corrosionRate, roomTemp`；无 Hive 用合成样本，输出 `models/anomaly_model.pkl`
+- SQL 查 `biz_forecast` F0 列，无 `period_month`；参数化 `:t` / `:limit`
 
 ## Commit
 
 | hash | message |
 |---|---|
-| `2db07a3` | `feat(5.1): 预案匹配/启动与前端管理` |
-| `3d31721` | `fix(task-8): 补齐停暖映射与启动 40002 测试` |
-| `8ea5e67` | `docs(task-8): 补齐自验证快照，阶段标记为待审查` |
-| `5ecbb75` | `fix(task-8): review反馈 - 停用不可启动、入参校验与theft映射` |
-| `1df300a` | `fix(task-8): review反馈 - Mock目录标注、种子SQL与启动确认` |
-| `c0e5191` | `docs(task-8): 审查回复，阶段改为待二次审查` |
+| `d9d74f7` | `feat(4.2): 故障预报/寿命预测模型与接口` |
 
 ## 问题与处理
 
-- 匹配/启动单测用 FakeSession，并对 SQL 表名/列名/`status=1` 做断言；HTTP 成功路径 mock 服务层。
-- `tests/test_scaffold.py` 空路由断言会在本 Task 合入后失败，按索引要求不在本分支改脚手架。
-- 演示闭环需手工执行 `config/mysql/plan_seed.sql`。
-- 审查 P3-1：契约锁定 snake_case 单对象；P3-2：级别精确匹配。
+- Task 2 护栏 `test_alarm_router_has_no_forecast` 在追加预报路由后会失败，改为断言 list/ack 仍在；forecast 覆盖放在 `tests/test_forecast.py`
+- 列表 `data` 为预报数组 + camelCase，对齐功能开发文档 `forecast[]` 与 Task 2 预警列表，不采用 api-guide 的 `{total, forecasts}` 包一层
+- 查询参数按功能开发文档使用 `type`（FastAPI `Query(alias="type")`），不用计划草稿里的 `ftype` 作为对外参数名
+- 训练脚本的 `print` 为 CLI 进度（Hive 回退 / 模型已保存），不是调试残留
+- 未改 `snapshots` 以外的 F0 冻结文件；独占范围外仅动了上述 Task 2 护栏测试
