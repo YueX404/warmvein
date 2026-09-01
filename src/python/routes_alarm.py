@@ -1,8 +1,8 @@
-"""Alarm list and acknowledge APIs. Forecast routes belong to Task 5."""
+"""Alarm list/ack APIs plus forecast list (Dev-2 Task 5)."""
 
 from datetime import datetime
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from sqlalchemy import text
 
 from db import SessionLocal
@@ -97,3 +97,52 @@ def ack_alarm(body: dict):
         return fail(40001, "operator 超长")
     with SessionLocal() as session:
         return _apply_ack(session, alarm_id, operator)
+
+
+_FORECAST_TYPES = ("freeze", "lifetime", "fault", "energy")
+_FORECAST_TYPE_NAME = {
+    "freeze": "冻堵预报",
+    "lifetime": "寿命预报",
+    "fault": "故障预报",
+    "energy": "能效预报",
+}
+_FORECAST_SQL = (
+    "SELECT forecast_id, station_id, type, title, risk_level, forecast_date, status, created_at "
+    "FROM biz_forecast WHERE (:t IS NULL OR type=:t) "
+    "ORDER BY forecast_date DESC LIMIT :limit"
+)
+
+
+def _fmt_date(value):
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return value
+
+
+def _to_forecast(row: dict) -> dict:
+    ftype = row.get("type")
+    return {
+        "forecastId": row.get("forecast_id"),
+        "stationId": row.get("station_id"),
+        "type": ftype,
+        "typeName": _FORECAST_TYPE_NAME.get(ftype, ""),
+        "title": row.get("title"),
+        "riskLevel": row.get("risk_level"),
+        "forecastDate": _fmt_date(row.get("forecast_date")),
+        "status": row.get("status"),
+        "createdAt": _fmt_time(row.get("created_at")),
+    }
+
+
+@router.get("/forecast/list")
+def list_forecasts(ftype: str = Query(default=None, alias="type")):
+    if ftype is not None and ftype not in _FORECAST_TYPES:
+        return fail(40001, "type 无效")
+    with SessionLocal() as session:
+        rows = session.execute(
+            text(_FORECAST_SQL),
+            {"t": ftype, "limit": _LIST_LIMIT},
+        ).mappings().all()
+    return ok([_to_forecast(dict(item)) for item in rows])
