@@ -32,7 +32,6 @@ def test_all_seven_module_routers_exist():
     for name in names:
         router = getattr(main, name)
         assert isinstance(router, APIRouter)
-        assert not router.routes, f"{name} 应为 F0 空桩，由 Dev-1/Dev-2 填充"
 
 
 def test_response_ok_envelope():
