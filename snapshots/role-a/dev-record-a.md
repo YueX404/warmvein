@@ -1,49 +1,43 @@
-# Task-1 开发记录（角色A）
+# Task-2 开发记录（角色A）
 
-**PR / Task：** Dev-2 Task 1 预警判定与降噪聚合  
-**分支：** `dev-2/feature/task1-alarm-engine`  
-**需求：** `docs/superpowers/plans/Dev-2-task1-alarm-engine.md`
+**PR / Task：** Dev-2 Task 2 预警列表/确认 API 与前端预警一张图  
+**分支：** `dev-2/feature/task2-alarm-map`  
+**需求：** `docs/superpowers/plans/Dev-2-task2-alarm-map.md`  
+**工作区：** `D:\YY-task2`（worktree，未切换 `D:\YY` 的 master）
 
 ## 测试用例
 
 | 用例 | 行为 |
 |---|---|
-| `test_judge_frost_red` | frost → 4 |
-| `test_judge_corrosion_yellow` | corrosion → 2 |
-| `test_dedup_key_stable` | key 稳定 |
-| `test_frost_high` | high → 4 |
-| `test_schema_type_frost_maps_freeze` | frost/imbalance/steal 入库词表 |
-| `test_handle_skips_missing_station_id` | 缺站号 skip |
-| `test_handle_skips_blank_alarm_type` | 缺类型 skip |
-| `test_handle_skips_unknown_alarm_type` | 未知类型 skip |
-| `test_handle_dedup_when_nx_fails` | SET NX 失败则跳过 |
-| `test_handle_inserts_schema_type_and_publishes` | 入库 freeze 并投递短信 |
-| `test_handle_db_failure_releases_dedup_key` | 入库失败释放锁 |
-| `test_handle_sms_failure_keeps_row_and_key` | 短信失败保留行和窗口 |
-| `test_handle_frost_string_level` | frost + high → 4 |
-| `test_handle_non_frost_string_level_uses_type_table` | corrosion + high → 2 |
-| `test_dispatch_commits_on_ok_skip_dedup` | 成功状态提交 offset |
-| `test_dispatch_retries_error_then_commits` | error 不提交，重试后提交 |
-| `test_dispatch_commits_undecodable_payload` | 坏 JSON skip 并提交 |
-| `test_consumer_has_main_guard` | `__main__` + `enable_auto_commit=False` |
+| `test_alarm_list` | `GET /api/alarm/list?level=3` → `code=0`，camelCase |
+| `test_alarm_list_filters_status` | `status=0` 作为合法过滤 |
+| `test_alarm_list_rejects_invalid_level` | `level=9` → `40001` |
+| `test_alarm_list_rejects_invalid_status` | `status=9` → `40001` |
+| `test_alarm_list_caps_result_size` | SQL 带 `LIMIT 200` |
+| `test_alarm_ack_validates_id` | `alarmId=0` → `40001` |
+| `test_alarm_ack_requires_operator` | 缺 operator → `40001` |
+| `test_alarm_ack_not_found` | 无行 → `40002`，不 commit |
+| `test_alarm_ack_rejects_non_open_status` | 终态 → `40001` |
+| `test_alarm_ack_success` | `status=0` 更新成功 |
+| `test_alarm_router_has_no_forecast` | 不挂 `/forecast` |
 
 ## 实现进度
 
-- `handle_alarm`：校验、SET NX 占窗、入库失败回滚 key、SMS 失败只记日志
-- `dispatch_record`：手动提交 offset；`error` 退避重试同一条
-- 启动：`cd src/python && python -m consumers.alarm_consumer`
+- 列表查 `biz_alarm`，`LIMIT 200`，失败不在生产灌 Mock
+- ack 仅 `status=0`；失败/关闭对话框不假成功
+- 站点卡片 = mock ∪ 告警 stationId
 
 ## Commit
 
 | hash | message |
 |---|---|
-| `c7a7b42` | `feat(4.1): 预警判定与降噪聚合、Kafka 消费` |
-| `eb843b4` | `docs(task-1): 补齐自验证快照，阶段标记为待审查` |
-| `8ff6fb3` | `fix(task-1): review反馈 - 消费循环隔离、去重回滚与类型映射` |
-| `d550e2c` | `docs(task-1): 审查回复，阶段改为待二次审查` |
+| `33fcacf` | `feat(4.1): 预警列表/确认 API 与预警一张图` |
+| `00c0bd8` | `docs(task-2): 补齐自验证快照，阶段标记为待审查` |
+| `3eeea88` | `fix(task-2): review反馈 - ack失败或关闭不再假成功` |
+| `9a2f8e9` | `fix(task-2): review反馈 - ack仅未确认可确认` |
+| `1fec805` | `fix(task-2): review反馈 - 列表失败不灌Mock与筛选站点上限` |
 
 ## 问题与处理
 
-- SET NX + 入库失败 DELETE，二次审查已接受相对「先 INSERT」的偏差。
-- P2-R1：自动提交会在 INSERT 失败后丢消息；改为手动提交。
-- kill -9 在 SET NX 与 INSERT 之间最多留下 300s 窗口（P3-R3，接受）。
+- `test_scaffold.py` 空桩断言仍失败，本分支不改。
+- P3-4 HTTP 422 需改冻结的 `main.py`，follow-up。
