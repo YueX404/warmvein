@@ -34,4 +34,14 @@
 - `pytest tests/test_plan.py -v` → 19 passed
 - `npx vue-tsc --noEmit`（`web/`）→ exit 0
 
-审查修复提交：`5ecbb75`、`1df300a`。
+审查修复提交：`5ecbb75`、`1df300a`。文档提交：`c0e5191`。
+
+## 二次审查（2026-09-01）
+
+来源：`docs/二次审查报告-Dev-2-task8-plan.md`。结论：通过，建议合入。首轮 P2 全部关闭。
+
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| P3-R1 | 修复 | Commit 表补 `c0e5191`。 |
+| P3-R2 | 修复 | `plan_seed.sql` 改为按 `plan_type` `WHERE NOT EXISTS`，可重复执行。仍不并入 `heat_init.sql`。 |
+| P3-R3 | 修复 | 启动人输入框 `maxlength="32"`。 |

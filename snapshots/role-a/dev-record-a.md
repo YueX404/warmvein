@@ -45,6 +45,7 @@
 | `8ea5e67` | `docs(task-8): 补齐自验证快照，阶段标记为待审查` |
 | `5ecbb75` | `fix(task-8): review反馈 - 停用不可启动、入参校验与theft映射` |
 | `1df300a` | `fix(task-8): review反馈 - Mock目录标注、种子SQL与启动确认` |
+| `c0e5191` | `docs(task-8): 审查回复，阶段改为待二次审查` |
 
 ## 问题与处理
 
