@@ -36,3 +36,14 @@
 - `pytest tests` → 119 passed
 
 审查修复提交：`b2b7649`。
+
+## 二次审查（2026-09-01）
+
+来源：`snapshots/role-a/review-feedback-a.md`（二次）。结论：✅ 通过，建议合入。首轮 🟡-1～🟡-6 全部关闭。
+
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| 🔵1 | 修复 | Commit 表补 `46b451a`。 |
+| 🔵2 | 保留 | `_resolve_model_dir` 两处拷贝 follow-up 再抽。 |
+| 🔵3 | 接受 | `forecast_seed.sql` 按 type 去重，不并入 `heat_init.sql`。 |
+
