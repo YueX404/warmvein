@@ -32,6 +32,7 @@
 | hash | message |
 |---|---|
 | `54d4e17` | `feat(sms): 短信发送/记录 API 与模板管理页面` |
+| `beb2dc1` | `docs(task-4): 补齐开发记录中的 commit hash` |
 
 ## 问题与处理
 
