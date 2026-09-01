@@ -9,29 +9,35 @@
 
 | 用例 | 行为 |
 |---|---|
-| `test_alarm_list` | `GET /api/alarm/list?level=3` → `code=0`，camelCase 字段，SQL 带 level |
-| `test_alarm_list_filters_status` | `status=0` 作为合法过滤条件传入（避免把 0 当 falsy 丢掉） |
+| `test_alarm_list` | `GET /api/alarm/list?level=3` → `code=0`，camelCase |
+| `test_alarm_list_filters_status` | `status=0` 作为合法过滤 |
 | `test_alarm_list_rejects_invalid_level` | `level=9` → `40001` |
+| `test_alarm_list_rejects_invalid_status` | `status=9` → `40001` |
+| `test_alarm_list_caps_result_size` | SQL 带 `LIMIT 200` |
 | `test_alarm_ack_validates_id` | `alarmId=0` → `40001` |
 | `test_alarm_ack_requires_operator` | 缺 operator → `40001` |
-| `test_alarm_ack_not_found` | `rowcount=0` → `40002` |
-| `test_alarm_ack_success` | 更新 status/operator 并 `code=0` |
-| `test_alarm_router_has_no_forecast` | 本 Task 不挂 `/forecast` |
+| `test_alarm_ack_not_found` | 无行 → `40002`，不 commit |
+| `test_alarm_ack_rejects_non_open_status` | 终态 → `40001` |
+| `test_alarm_ack_success` | `status=0` 更新成功 |
+| `test_alarm_router_has_no_forecast` | 不挂 `/forecast` |
 
 ## 实现进度
 
-- `GET /api/alarm/list`：查 `biz_alarm`，参数化过滤，不 import `alarm_engine`
-- `POST /api/alarm/ack`：校验 alarmId/operator，写入 `status=1`、`operator`、`ack_at`
-- 前端 `alarm.api.ts` + `AlarmMap.vue`（AlarmCard 分级着色）+ mock 回落
+- 列表查 `biz_alarm`，`LIMIT 200`，失败不在生产灌 Mock
+- ack 仅 `status=0`；失败/关闭对话框不假成功
+- 站点卡片 = mock ∪ 告警 stationId
 
 ## Commit
 
 | hash | message |
 |---|---|
 | `33fcacf` | `feat(4.1): 预警列表/确认 API 与预警一张图` |
+| `00c0bd8` | `docs(task-2): 补齐自验证快照，阶段标记为待审查` |
+| `3eeea88` | `fix(task-2): review反馈 - ack失败或关闭不再假成功` |
+| `9a2f8e9` | `fix(task-2): review反馈 - ack仅未确认可确认` |
+| `1fec805` | `fix(task-2): review反馈 - 列表失败不灌Mock与筛选站点上限` |
 
 ## 问题与处理
 
-- `tests/test_scaffold.py::test_all_seven_module_routers_exist` 会因本 Task 填充路由失败。索引要求在 **main 单独 chore** 放宽，本分支不改该文件。
-- 列表/确认单测 mock `SessionLocal`，不依赖真实 MySQL。
-- 前端无独立单测；`vue-tsc && vite build` 作为类型与打包校验。
+- `test_scaffold.py` 空桩断言仍失败，本分支不改。
+- P3-4 HTTP 422 需改冻结的 `main.py`，follow-up。

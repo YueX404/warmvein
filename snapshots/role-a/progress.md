@@ -3,17 +3,14 @@
 **当前 PR / Task：** Dev-2 Task 2 预警列表/确认 API 与前端预警一张图  
 **分支：** `dev-2/feature/task2-alarm-map`  
 **工作区：** `D:\YY-task2`  
-**阶段状态：** 开发完成，待审查
+**阶段状态：** 修复完成，待二次审查
 
 ## 自验证（2026-09-01）
 
-对照 `docs/superpowers/plans/Dev-2-task2-alarm-map.md` 通过。
+对照计划通过。详情见当时 `dev-record-a.md`。
 
-- 分支 `dev-2/feature/task2-alarm-map`，工作区干净，功能提交 `33fcacf`
-- 独占文件 5 个，未改 `main.py` / `AlarmCard` / `test_scaffold.py` / Kafka 消费者 / forecast
-- `pytest tests/test_alarm_routes.py -v` → 8 passed
-- `pytest tests/test_alarm_engine.py` → 未回归
-- `npm run build`（`vue-tsc && vite build`）→ 通过
-- `test_scaffold.py::test_all_seven_module_routers_exist` 失败为计划内空桩断言，本分支不改
+## 审查修复（2026-09-01）
 
-详情见 `snapshots/role-a/dev-record-a.md`。
+对照 `docs/审查报告-Dev-2-task2-alarm-map.md`：P1-1/P1-2、P2-1～P2-5、P3-1～P3-3 已处理；P3-4 因 F0 冻结 `main.py` 保留；P3-5 确认列表契约为数组。  
+`pytest tests/test_alarm_routes.py -v` → 11 passed。  
+详情见 `snapshots/role-a/review-reply-a.md`。
