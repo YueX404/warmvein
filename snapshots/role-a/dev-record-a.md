@@ -1,55 +1,40 @@
-# Task-8 开发记录（角色A）
+# Task-4 开发记录（角色A）
 
-**PR / Task：** Dev-2 Task 8 预案匹配/启动与前端管理  
-**分支：** `dev-2/feature/task8-plan`  
-**需求：** `docs/superpowers/plans/Dev-2-task8-plan.md`
+**PR / Task：** Dev-2 Task 4 短信 API 与前端模板管理  
+**分支：** `dev-2/feature/task4-sms-api`  
+**工作区：** `D:\YY\.worktrees\dev-2-feature-task4-sms-api`（独立 worktree，未切换 `D:\YY` 的 `master`）  
+**需求：** `docs/superpowers/plans/Dev-2-task4-sms-api.md`
 
 ## 测试用例
 
 | 用例 | 行为 |
 |---|---|
-| `test_match_frost_high` | frost + 4 → freeze 预案 |
-| `test_match_maps_leak_to_burst` | leak → burst |
-| `test_match_maps_steal_to_third_party` | steal → third_party |
-| `test_match_maps_theft_to_third_party` | theft → third_party |
-| `test_match_maps_shutdown` | shutdown → shutdown |
-| `test_match_empty_returns_type` | 无启用行时 plan_id=None，保留映射类型 |
-| `test_activate_requires_existing` | plan_id=0 → 0 |
-| `test_activate_missing_plan` | 库中无该预案 → 0 |
-| `test_activate_rejects_disabled_plan` | status≠1 不写执行单 |
-| `test_activate_inserts_execution` | 写入 biz_plan_execution，返回 exec_id |
-| `test_plan_match_validates` | POST /api/plan/match 缺 alarmType → 40001 |
-| `test_plan_match_rejects_non_string_type` | alarmType 非字符串 → 40001 |
-| `test_plan_match_rejects_level_out_of_range` | level 越界 → 40001 |
-| `test_plan_match_ok` | 匹配成功返回 plan_id/plan_type |
-| `test_plan_activate_validates` | POST /api/plan/activate 缺 planId → 40001 |
-| `test_plan_activate_rejects_non_positive_id` | planId≤0 → 40001 |
-| `test_plan_activate_rejects_long_operator` | operator>32 → 40001 |
-| `test_plan_activate_not_found` | 预案不存在 → 40002 |
-| `test_plan_activate_ok` | 启动成功返回 execId |
+| `test_sms_send_validates` | 空 templateCode + 空 phones → 40001 |
+| `test_sms_send_rejects_missing_phones` | 缺 phones → 40001 |
+| `test_sms_send_rejects_non_list_phones` | phones 非列表 → 40001 |
+| `test_sms_send_rejects_non_string_phone` | phones 含非字符串 → 40001 |
+| `test_sms_send_template_not_found` | send_sms 抛 ValueError → 40002 |
+| `test_sms_send_ok` | 返回 data.batchId |
+| `test_sms_log_list` | GET /api/sms/log?batchId= 返回 200 |
+| `test_sms_log_filters_batch_id` | 参数化 WHERE batch_id=:b |
+| `test_sms_log_returns_masked_phone` | 返回 phoneMasked / camelCase / 格式化时间 |
+| `test_sms_log_caps_result_size` | LIMIT 200 |
 
 ## 实现进度
 
-- `services/plan.py`：`match` / `activate`；映射含 frost/leak/steal/theft/shutdown 及四类自身词
-- `activate` 仅允许 `status=1`
-- `routes_plan.py`：校验 alarmType/level/planId/operator
-- 前端：匹配/启动；Mock 目录预览不可启动；启动前确认
-- 种子：`config/mysql/plan_seed.sql`（手工，不改 `heat_init.sql`）
+- `routes_sms.py`：`POST /sms/send`、`GET /sms/log`；校验 templateCode/phones/vars；模板不存在 40002
+- 查询兼容 `batch_id` 与 `batchId`；SQL 参数化；不改 `sms_service.py`
+- 前端：模板目录、手动发送、发送记录；号码展示走 `maskPhone`
+- Mock：模板 + 回执样例；后端不可达时 DEV 回退 Mock
 
 ## Commit
 
 | hash | message |
 |---|---|
-| `2db07a3` | `feat(5.1): 预案匹配/启动与前端管理` |
-| `3d31721` | `fix(task-8): 补齐停暖映射与启动 40002 测试` |
-| `8ea5e67` | `docs(task-8): 补齐自验证快照，阶段标记为待审查` |
-| `5ecbb75` | `fix(task-8): review反馈 - 停用不可启动、入参校验与theft映射` |
-| `1df300a` | `fix(task-8): review反馈 - Mock目录标注、种子SQL与启动确认` |
-| `c0e5191` | `docs(task-8): 审查回复，阶段改为待二次审查` |
+| （待提交） | `feat(sms): 短信发送/记录 API 与模板管理页面` |
 
 ## 问题与处理
 
-- 匹配/启动单测用 FakeSession，并对 SQL 表名/列名/`status=1` 做断言；HTTP 成功路径 mock 服务层。
-- `tests/test_scaffold.py` 空路由断言会在本 Task 合入后失败，按索引要求不在本分支改脚手架。
-- 演示闭环需手工执行 `config/mysql/plan_seed.sql`。
-- 审查 P3-1：契约锁定 snake_case 单对象；P3-2：级别精确匹配。
+- 计划测试用 `batchId`，前端契约用 `batch_id`，路由同时接受两者。
+- 发送成功路径 mock `sms_service.send_sms`，记录查询用 FakeSession，避免依赖 MySQL/Redis。
+- 列表加 `LIMIT 200`，与预警列表一致，防止无界扫描。
