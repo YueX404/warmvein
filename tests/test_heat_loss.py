@@ -9,3 +9,9 @@ def test_loss_positive_and_scales_with_length():
 
 def test_loss_zero_when_isothermal():
     assert pipe_heat_loss(0.5, 0.1, 100.0, 20.0, 20.0, 20.0) == 0.0
+
+
+def test_loss_scales_with_temperature_difference():
+    low_dt = pipe_heat_loss(0.5, 0.1, 100.0, 40.0, 40.0, 20.0)
+    high_dt = pipe_heat_loss(0.5, 0.1, 100.0, 60.0, 60.0, 20.0)
+    assert high_dt == 2 * low_dt

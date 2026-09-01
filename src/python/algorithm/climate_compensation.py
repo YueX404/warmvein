@@ -8,6 +8,7 @@ def climate_compensate(tw: float, tn: float = 18.0, Tg_d: float = 75.0,
     Tg_set = tn + (Tg_d - tn) * (tw - tn) / (tw_d - tn)
     th_set = Tg_set - dT_d
     """
-    Tg_set = tn + (Tg_d - tn) * (tw - tn) / (tw_d - tn)
+    denom = tw_d - tn
+    Tg_set = Tg_d if denom == 0 else tn + (Tg_d - tn) * (tw - tn) / denom
     th_set = Tg_set - dT_d
     return {"TgSet": round(Tg_set, 1), "thSet": round(th_set, 1), "tw": tw}

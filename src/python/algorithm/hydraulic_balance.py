@@ -9,6 +9,6 @@ def compute_balance(actual: dict, design: dict) -> dict:
         result[bid] = {
             "beta": beta,
             "unbalanced": beta < 0.9 or beta > 1.1,
-            "suggest_open": round((1 - beta) * 100, 1) if beta else None,
+            "suggest_open": None if not g_des else round((1 - beta) * 100, 1),
         }
     return result
