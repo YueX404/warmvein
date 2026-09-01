@@ -20,15 +20,18 @@
 | `test_handle_inserts_schema_type_and_publishes` | 入库 freeze 并投递短信 |
 | `test_handle_db_failure_releases_dedup_key` | 入库失败释放锁 |
 | `test_handle_sms_failure_keeps_row_and_key` | 短信失败保留行和窗口 |
-| `test_handle_frost_string_level` | level=high → 4 |
-| `test_consumer_has_main_guard` | 进程入口存在 |
+| `test_handle_frost_string_level` | frost + high → 4 |
+| `test_handle_non_frost_string_level_uses_type_table` | corrosion + high → 2 |
+| `test_dispatch_commits_on_ok_skip_dedup` | 成功状态提交 offset |
+| `test_dispatch_retries_error_then_commits` | error 不提交，重试后提交 |
+| `test_dispatch_commits_undecodable_payload` | 坏 JSON skip 并提交 |
+| `test_consumer_has_main_guard` | `__main__` + `enable_auto_commit=False` |
 
 ## 实现进度
 
 - `handle_alarm`：校验、SET NX 占窗、入库失败回滚 key、SMS 失败只记日志
-- `to_schema_type`：Kafka 词 → schema 枚举
+- `dispatch_record`：手动提交 offset；`error` 退避重试同一条
 - 启动：`cd src/python && python -m consumers.alarm_consumer`
-- Kafka 地址：`settings.KAFKA_BOOTSTRAP_SERVERS`；Producer 复用
 
 ## Commit
 
@@ -36,9 +39,11 @@
 |---|---|
 | `c7a7b42` | `feat(4.1): 预警判定与降噪聚合、Kafka 消费` |
 | `eb843b4` | `docs(task-1): 补齐自验证快照，阶段标记为待审查` |
+| `8ff6fb3` | `fix(task-1): review反馈 - 消费循环隔离、去重回滚与类型映射` |
+| `d550e2c` | `docs(task-1): 审查回复，阶段改为待二次审查` |
 
 ## 问题与处理
 
-- 仓库默认分支是 `master`，从 `master` 切出。
-- 审查 P1-2 要求先入库再 SET；为同时满足 P2-3 原子门闩，改为 SET NX + 入库失败 DELETE。
-- `judge_level` 仍忽略数字 value；蓝色等级与根因标签留给后续算法任务。
+- SET NX + 入库失败 DELETE，二次审查已接受相对「先 INSERT」的偏差。
+- P2-R1：自动提交会在 INSERT 失败后丢消息；改为手动提交。
+- kill -9 在 SET NX 与 INSERT 之间最多留下 300s 窗口（P3-R3，接受）。

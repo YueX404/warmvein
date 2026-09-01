@@ -33,7 +33,18 @@
 
 ## 计划缺口（保留，不在本轮改算法）
 
-- `judge_level` 仍按类型表覆盖数字 `level`（计划 snippet 如此）。字符串 `low/medium/high` 走 `risk_level_from_frost`。
+- `judge_level` 仍按类型表覆盖数字 `level`（计划 snippet 如此）。冻堵字符串 `low/medium/high` 走 `risk_level_from_frost`。
 - 类型表最小为 2，蓝色（1）不会从查表产生。
 - `root_cause` 仍存 Kafka `alarmType`。
 - FR-4.1.1 阈值/规则引擎另开任务。
+
+---
+
+## 二次审查（`docs/二次审查报告-Dev-2-task1-alarm-engine.md`）
+
+| 编号 | 处理 |
+|---|---|
+| P2-R1 | `enable_auto_commit=False`。抽出 `dispatch_record`：仅 `skip`/`dedup`/`ok` 时 `commit()`；`error` 不提交，退避 2s 后重试同一条。无法解码的报文当 `skip` 提交，避免毒消息堵分区。 |
+| P3-R1 | 仅 `alarm_type == "frost"` 且 `level` 为字符串时走 `risk_level_from_frost`。 |
+| P3-R2 | 开发记录 commit 表补齐。 |
+| P3-R3 | 接受：kill -9 可能留下最多 300s 窗口。 |
