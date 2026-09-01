@@ -12,9 +12,9 @@
 - 定位：从"事后抢险"转向"事前预警-预报-预案"的主动防控平台
 - 投资规模（典型地级市）：建设期一次性投入约 500 万元
 
-**当前状态（2026-08）**
+**当前状态（2026-09）**
 - `src/python/` 存在一套「工业设备监控」模板（FastAPI + Kafka + Spark + Hive + ES + sklearn + ECharts），是本项目的脚手架起点，供热改造在其基础上进行。
-- 设计文档与实现计划已生成（`docs/`），待开发启动。
+- 设计文档与实现计划已生成（`docs/`），F0 共享脚手架已实施：`main.py` 已挂载 7 个模块路由并锁定，`routes_*.py`、`algorithm/`、`services/`、`consumers/`、`web/` 骨架均已就位，各模块内部实现待 Dev-1/Dev-2 开发。
 
 **Phase 1 切片范围（本次开发）**
 主模块：2.2 供暖管网智慧运行（7 项能力完整）；配套：1.2 数据中台、4.1 预警引擎、4.2 预报/寿命、8.x 能效节能、9.x 工单/巡检、10.x 数字孪生/仿真、5.1 预案、11.2 公众服务、14.x 系统支撑；新增短信通知。
@@ -37,6 +37,8 @@
 ---
 
 ## 目录结构
+
+> ⚠ 目录结构已由 F0 脚手架落地（骨架与共享文件均已就位），各模块内部实现按 `docs/superpowers/plans/` 的 Dev-1/Dev-2 计划推进。
 
 ```
 D:\YY\
@@ -163,7 +165,7 @@ cd web && npm install && npm run dev
 ## 关键设计决策
 
 - **混合栈复用**：沿用现有 Python 大数据栈（FastAPI+Kafka+Spark+Hive+ES+sklearn），新增 Vue3 前端；不引入 Java 重写
-- **F0 共享脚手架**：main.py 一次性挂载 7 个空路由后锁定，之后无人再改，消除 PR 冲突
+- **F0 共享脚手架**：F0 已实施并冻结——main.py 一次性挂载 7 个空路由后锁定，之后无人再改，消除 PR 冲突
 - **消息总线解耦**：Dev-1 采集→Kafka `heat-alarm-topic`→Dev-2 预警引擎消费；双方不共享业务代码
 - **短信归属 Dev-2**：Dev-1 的公众服务只调 `POST /api/sms/send`，不碰短信实现
 
@@ -177,6 +179,6 @@ cd web && npm install && npm run dev
 | 实时数据接入 | `src/python/heat_generate_logs.py` + `heat_kafka_producer.py` |
 | Spark 数仓分层 | `src/python/heat_spark_analysis.py` + `config/hive/heat_ddl.sql` |
 | ML 模型 | `src/python/heat_train_model.py`（异常/寿命/健康度） |
-| API 入口 | `src/python/main.py`（路由挂载）、`src/python/routes_*.py` |
+| API 入口 | `src/python/main.py`（规划：路由挂载；当前：工业模板）、`src/python/routes_*.py` |
 | MySQL 建表 | `config/mysql/heat_init.sql` |
 | 实现计划（双人） | `docs/superpowers/plans/Dev-1-运行流.md`、`Dev-2-处置流.md` |

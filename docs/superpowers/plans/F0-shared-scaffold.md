@@ -52,7 +52,7 @@ def fail(code: int, message: str, data: Any = None) -> dict:
     return {"code": code, "message": message, "data": data}
 ```
 
-统一错误码（§3）：`0` 成功 / `40001` 参数校验失败 / `40002` 资源不存在 / `40003` 权限不足 / `50001` 服务内部错误 / `50002` 模型未加载 / `50003` 短信网关失败。
+统一错误码：`0` 成功 / `40001` 参数校验失败 / `40002` 资源不存在 / `40003` 权限不足 / `50001` 服务内部错误 / `50002` 模型未加载 / `50003` 短信网关失败。
 
 ---
 
@@ -170,3 +170,19 @@ router = APIRouter()
 | 4.2 预报与寿命 | Dev-2 | routes_alarm / services/forecast（ML 模型） |
 | 9.x 工单巡检 | Dev-2 | routes_workorder / services/workorder |
 | 5.1 预案 | Dev-2 | routes_plan / services/plan |
+
+---
+
+## 6. 实施偏离记录（2026-09-01 审查修复后补记）
+
+实际落地与 §4 模板的偏离如下，**双方开发一律以代码现状为准**：
+
+1. **CORS 可配置**：`main.py` 不用硬编码 `allow_origins=["*"]`，改读 `settings.APP_CORS_ORIGINS`（逗号分隔，默认 `*`）。生产环境必须显式配置来源列表（带凭据请求不支持通配符）。
+2. **`init_db_once` 已删除**：计划模板中的 `from db import init_db_once` 未启用，且该函数实现有误（引用不存在的 `Base`），审查后直接移除。表结构初始化以 `config/mysql/heat_init.sql`（docker-entrypoint 自动执行）为准。
+3. **全局异常处理器带日志**：`main.py` 的 catch-all 会用 `logger.exception` 记录堆栈后再返回 `50001`，便于排障。
+4. **`.env` 解析器**：`config/settings.py` 自带解析器支持行内注释与引号；不依赖 `python-dotenv`。
+5. **数据库名**：统一为 `warmvein`（原 `heat_platform` 已废弃，见《文档审查报告-20260831》）。
+6. **Logstash 管道**：VM compose 挂载 `config/logstash/heat_kafka_to_es.conf`（旧的 `kafka_to_es.conf` 保留为工业模板参考，不再挂载）；ES `document_id` 使用 `sensor_id-event_timestamp` 避免同站多传感器互相覆盖。
+7. **前端 mock**：`mock/index.ts` 使用 `export * as` 命名空间导出（各模块 mock 均为命名导出）；已补齐 `public.mock.ts`。
+8. **依赖锁版**：`requirements.txt` 恢复精确锁版（`kafka-python==2.1.0`，修复 2.0.2 在 Python 3.12+ 的兼容问题）；前端 `vue-tsc` 升至 `^2.0.0`（1.8 与 TypeScript ≥5.5 不兼容，`npm run build` 会直接崩溃）。
+9. **冒烟测试**：`tests/test_scaffold.py` 为契约冻结后的回归基线（5 项：/health、7 路由空桩、统一响应结构、Kafka topic 契约），改动共享文件前必须先跑通。

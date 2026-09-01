@@ -72,7 +72,7 @@ Python 3.10+ / FastAPI / scikit-learn / joblib；Spark 3.x / Hive；Kafka；MySQ
 - [ ] `services/alarm_engine.py`：四级预警(蓝1/黄2/橙3/红4)判定、降噪聚合、根因标签、发布 AlarmEvent。
 - [ ] `services/sms_service.py`：SMSSender 抽象 + Aliyun/Tencent/LocalMock；模板填充、脱敏(mask_phone)、Redis 限流、失败重试(≤3,指数退避)、落库 biz_sms_log（详见功能开发文档 §6）。
 - [ ] `heat_train_model.py`：IsolationForest 异常检测、RF 用热异常三分类、RF 剩余寿命回归；保存到 models/。
-- [ ] API：`/heat/balance`、`/heat/loss`、`/heat/energy`、`/console/climate-compensate`、`/alarm/list`、`/alarm/ack`、`/forecast/list`、`/sms/send`、`/sms/log`。
+- [ ] API：`/api/heat/balance`、`/api/heat/loss`、`/api/heat/energy`、`/api/console/climate-compensate`、`/api/alarm/list`、`/api/alarm/ack`、`/api/forecast/list`、`/api/sms/send`、`/api/sms/log`。
 - [ ] 预警引擎联动短信：蓝/黄→责任人；橙/红→责任人+主管+应急；公众停暖→订阅用户批量（见功能开发文档 §6.2）。
 - ✅ 验收：四级预警准确率≥95%、误报≤5%；短信 mock 发送成功率 100%、脱敏合规；ML 模型加载成功。
 

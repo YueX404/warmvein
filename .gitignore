@@ -26,6 +26,11 @@ build/
 *.egg
 
 # ===========================
+# Node / 前端
+# ===========================
+node_modules/
+
+# ===========================
 # 环境变量 / 敏感配置（切勿提交）
 # ===========================
 .env
@@ -62,3 +67,70 @@ tmp/
 # Docker 运行时临时文件
 # ===========================
 docker/volumes/
+
+# ===========================
+# 虚拟化文件（VMware 虚拟机，切勿入库）
+# ===========================
+*.vmdk
+*.vmdk.lck/
+*.vmem
+*.vmem.lck/
+*.vmx
+*.vmx.lck/
+*.vmxf
+*.vmsd
+*.nvram
+*.scoreboard
+
+# ===========================
+# 仓库根目录的第三方软件遗留文件（Xshell 等，不属于本项目）
+# ===========================
+.workbuddy-ai/
+/CrashRpt.dll
+/CrashSender.exe
+/FNP_Act_Installer.dll
+/FnpCommsSoap.dll
+/LiveUpdate.dat
+/LiveUpdate.exe
+/NsActivate_libFNP.dll
+/NsRDP.exe
+/RealCmdModule.exe
+/SessionConverter.exe
+/Xagent.exe
+/Xshell.exe
+/Xshell.ico
+/Xshell7_en.pdf
+/Xshell7_ko.pdf
+/XshellCore.exe
+/XshellCore.tlb
+/XshellIcon.ico
+/XshellLib.dll
+/Xtransport.exe
+/autoinst.flp
+/autoinst.iso
+/cbor.dll
+/cpprest142_2_10.dll
+/crashrpt_lang.ini
+/crypto-50.dll
+/example.tkm
+/fido2.dll
+/filexfer.dat
+/installanchorservice.exe
+/jsoncpp.dll
+/nsactivate.dll
+/nslicense.dll
+/nsprofile2.dll
+/nsregister.exe
+/nsresource.dll
+/nssecurity.dll
+/nssock2.dll
+/nsssh3.dll
+/nsutil2.dll
+/python38.dll
+/python38.zip
+/zlib1.dll
+/ColorSchemes/
+/HighlightSample/
+/Icons/
+/Languages/
+/ScriptSample/

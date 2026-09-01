@@ -205,7 +205,7 @@ services:
     environment:
       LS_JAVA_OPTS: "-Xms256m -Xmx384m"
     volumes:
-      - ../config/logstash/kafka_to_es.conf:/usr/share/logstash/pipeline/logstash.conf
+      - ../config/logstash/heat_kafka_to_es.conf:/usr/share/logstash/pipeline/logstash.conf
     command: logstash -f /usr/share/logstash/pipeline/logstash.conf
     depends_on:
       - elasticsearch
@@ -280,9 +280,9 @@ services:
       - "3306:3306"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
-      MYSQL_DATABASE: heat_platform
-      MYSQL_USER: heat
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-heat123}
+      MYSQL_DATABASE: warmvein
+      MYSQL_USER: warmvein
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-warmvein123}
     volumes:
       - mysql_data:/var/lib/mysql
       - ../config/mysql:/docker-entrypoint-initdb.d

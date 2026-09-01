@@ -1,6 +1,7 @@
 # 安塞区城市安全生命线管网 AI 智慧平台
 
 > 城市供暖管网智慧运行核心闭环 · 天信管业科技集团城市生命线项目
+> 对外品牌名：**暖脉 AI 智慧供热平台**（codename `warmvein`）
 
 ---
 
@@ -75,6 +76,8 @@ AI层      sklearn 异常检测 · 寿命预测 · 冻堵预报
 
 ## 项目结构
 
+> ⚠ 目录结构已由 F0 脚手架落地（骨架与共享文件均已就位），各模块内部实现按 `docs/superpowers/plans/` 的 Dev-1/Dev-2 计划推进。
+
 ```
 ├── src/python/                # 后端服务
 │   ├── main.py               # FastAPI 入口（7 模块路由挂载）
@@ -103,26 +106,22 @@ AI层      sklearn 异常检测 · 寿命预测 · 冻堵预报
 
 ## 快速开始
 
+> ⚠ F0 脚手架已实施，以下命令可直接启动（后端挂载 7 个模块路由桩，前端为占位页面）；各模块业务功能由 Dev-1/Dev-2 计划开发中。
+
 **前置条件**：Python 3.10+、Node.js 18+、Docker + Docker Compose
 
 ```bash
 # 1. 启动基础集群（Kafka/Hive/Spark/ES/Redis/MySQL）
 cd docker && docker-compose up -d && cd ..
 
-# 2. 生成供热模拟数据（1 万条）
-python src/python/heat_generate_logs.py --count 10000 --output data/logs
+# 2-5. 数据链路脚本（由 Dev-1 计划产出，当前尚不存在，待实现后启用）：
+#   python src/python/heat_generate_logs.py --count 10000 --output data/logs
+#   python src/python/heat_kafka_producer.py --bootstrap localhost:9092 --duration 300
+#   spark-submit --master spark://spark-master:7077 src/python/heat_spark_analysis.py 2026-08-31
+#   python src/python/heat_train_model.py
 
-# 3. 启动 Kafka 生产者（实时模拟，300秒）
-python src/python/heat_kafka_producer.py --bootstrap localhost:9092 --duration 300
-
-# 4. Spark 离线分析（ODS→DWD→DWS→ADS）
-spark-submit --master spark://spark-master:7077 src/python/heat_spark_analysis.py 2026-08-31
-
-# 5. 训练 ML 模型
-python src/python/heat_train_model.py
-
-# 6. 启动后端服务
-uvicorn src.python.main:app --host 0.0.0.0 --port 8000
+# 6. 启动后端服务（main.py 使用非包内导入，须从 src/python 目录启动）
+cd src/python && uvicorn main:app --host 0.0.0.0 --port 8000
 
 # 7. 启动前端（另开终端）
 cd web && npm install && npm run dev
@@ -130,7 +129,7 @@ cd web && npm install && npm run dev
 
 启动后访问：
 - API 文档（Swagger）：`http://localhost:8000/docs`
-- 前端大屏：`http://localhost:5173`（Vite 默认端口）
+- 前端大屏：`http://localhost:3000`（vite.config.ts 指定端口）
 
 ---
 
@@ -141,10 +140,15 @@ cd web && npm install && npm run dev
 | [需求分析文档](docs/需求分析文档.md) | 切片范围、功能需求 FR、非功能需求 NFR、验收标准 |
 | [系统设计文档](docs/系统设计文档.md) | 分层架构、数据模型、核心算法、安全等保三级 |
 | [功能开发文档](docs/功能开发文档.md) | API 接口清单、MySQL DDL、错误码、迭代里程碑 |
-| [开发任务-运行流](docs/开发任务拆分-角色A-平台与智能底座.md) | 双人拆分：Dev-1 负责 1.2/2.2/8.x/10.x/11.2 |
-| [开发任务-处置流](docs/开发任务拆分-角色B-前端与展现层.md) | 双人拆分：Dev-2 负责 4.1/短信/4.2/9.x/5.1 |
+| [API 接口文档](docs/api-guide.md) | 17 个端点详细说明、请求/响应示例、错误码 |
+| [数据字典](docs/database-schema.md) | MySQL/Hive/Redis/ES 全表结构、字段说明、枚举值 |
+| [部署文档](docs/deployment.md) | Docker 集群、服务启动、脚本说明、常见问题 |
+| [虚拟机部署](docs/部署文档-虚拟机部署.md) | VMware 虚拟机部署指南（VM 优化版 Compose + OVA 模板） |
+| [开发任务-角色A（后端/数据/算法）](docs/开发任务拆分-角色A-平台与智能底座.md) | ~~前后端拆分旧方案~~，已被 Dev-1/Dev-2 模块垂直拆分取代 |
+| [开发任务-角色B（前端/展现层）](docs/开发任务拆分-角色B-前端与展现层.md) | ~~前后端拆分旧方案~~，已被 Dev-1/Dev-2 模块垂直拆分取代 |
 | [Dev-1 实现计划](docs/superpowers/plans/Dev-1-运行流.md) | TDD 细粒度任务（含完整代码与测试） |
 | [Dev-2 实现计划](docs/superpowers/plans/Dev-2-处置流.md) | TDD 细粒度任务（含完整代码与测试） |
+| [文档审查报告-20260831](docs/文档审查报告-20260831.md) | 文档一致性审查与修复记录（库名统一等） |
 
 ---
 
