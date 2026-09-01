@@ -1,9 +1,10 @@
 from pathlib import Path
+import json
 
 import pytest
 
 from services.sms_service import mask_phone, build_content, send_sms
-from consumers.sms_consumer import handle_notify
+from consumers.sms_consumer import dispatch_record, handle_notify
 
 
 def test_mask_phone():
@@ -207,3 +208,76 @@ def test_consumer_has_main_guard():
     assert "SMS_NOTIFY_TOPIC" in text
     assert "enable_auto_commit=False" in text
     assert "ALARM_NOTICE" not in text
+
+
+class _FakeMsg:
+    def __init__(self, payload):
+        self.value = (
+            payload if isinstance(payload, bytes)
+            else json.dumps(payload).encode()
+        )
+
+
+class _FakeKafka:
+    def __init__(self):
+        self.commits = 0
+
+    def commit(self):
+        self.commits += 1
+
+
+_SMS_MSG = {"level": 4, "phone": "13812341234", "alarmType": "frost"}
+
+
+def test_dispatch_commits_on_ok_and_skip():
+    kafka = _FakeKafka()
+    assert dispatch_record(_FakeMsg(_SMS_MSG), kafka, handle=lambda _: "ok") == "ok"
+    assert kafka.commits == 1
+    kafka = _FakeKafka()
+    dispatch_record(_FakeMsg(_SMS_MSG), kafka, handle=lambda _: "skip")
+    assert kafka.commits == 1
+
+
+def test_dispatch_retries_error_then_commits():
+    kafka = _FakeKafka()
+    n = {"i": 0}
+
+    def flaky(_payload):
+        n["i"] += 1
+        return "error" if n["i"] == 1 else "ok"
+
+    slept = []
+    result = dispatch_record(
+        _FakeMsg(_SMS_MSG), kafka, handle=flaky, sleep=slept.append
+    )
+    assert result == "ok"
+    assert n["i"] == 2
+    assert kafka.commits == 1
+    assert slept
+
+
+def test_dispatch_send_raise_does_not_commit_until_ok():
+    kafka = _FakeKafka()
+    n = {"i": 0}
+
+    def boom(_payload):
+        n["i"] += 1
+        if n["i"] == 1:
+            raise RuntimeError("db down")
+        return "ok"
+
+    slept = []
+    result = dispatch_record(
+        _FakeMsg(_SMS_MSG), kafka, handle=boom, sleep=slept.append
+    )
+    assert result == "ok"
+    assert n["i"] == 2
+    assert kafka.commits == 1
+    assert slept
+
+
+def test_dispatch_commits_undecodable_payload():
+    kafka = _FakeKafka()
+    result = dispatch_record(_FakeMsg(b"not-json"), kafka, handle=lambda _: "ok")
+    assert result == "skip"
+    assert kafka.commits == 1

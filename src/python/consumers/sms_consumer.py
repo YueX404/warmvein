@@ -6,6 +6,7 @@ Start from src/python:
 
 import json
 import logging
+import time
 
 from kafka import KafkaConsumer
 
@@ -14,6 +15,9 @@ from kafka_topics import SMS_NOTIFY_TOPIC
 from services import sms_service
 
 logger = logging.getLogger(__name__)
+
+COMMIT_STATUSES = frozenset({"skip", "ok"})
+RETRY_BACKOFF_SEC = 2
 
 _LEVEL_TPL = {1: "ALARM_BLUE", 2: "ALARM_YELLOW", 3: "ALARM_ORANGE", 4: "ALARM_RED"}
 
@@ -43,6 +47,26 @@ def handle_notify(msg, send=None):
     return "ok"
 
 
+def dispatch_record(msg, consumer, handle=None, sleep=None):
+    handle = handle or handle_notify
+    sleep = sleep or time.sleep
+    while True:
+        try:
+            payload = json.loads(msg.value.decode())
+            result = handle(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+            logger.exception("skip undecodable sms notify")
+            result = "skip"
+        except Exception:
+            logger.exception("sms notify handle failed")
+            result = "error"
+        if result in COMMIT_STATUSES:
+            consumer.commit()
+            return result
+        logger.warning("sms notify error, retry without commit")
+        sleep(RETRY_BACKOFF_SEC)
+
+
 def consume():
     consumer = KafkaConsumer(
         SMS_NOTIFY_TOPIC,
@@ -52,12 +76,7 @@ def consume():
         enable_auto_commit=False,
     )
     for msg in consumer:
-        try:
-            payload = json.loads(msg.value.decode())
-            handle_notify(payload)
-        except Exception:
-            logger.exception("sms notify failed")
-        consumer.commit()
+        dispatch_record(msg, consumer)
 
 
 if __name__ == "__main__":
