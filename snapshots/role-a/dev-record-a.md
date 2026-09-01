@@ -20,12 +20,20 @@
 | `test_handle_maps_red_and_sends` | level=4 → `ALARM_RED` |
 | `test_handle_defaults_to_yellow` | 缺 level → `ALARM_YELLOW`，站名回落到 station_id |
 | `test_handle_skips_missing_phone` | 无合法手机号 skip |
-| `test_consumer_has_main_guard` | `__main__` + `SMS_NOTIFY_TOPIC` + 手动提交，无 `ALARM_NOTICE` |
+| `test_consumer_has_main_guard` | `__main__` + `SMS_NOTIFY_TOPIC` + 手动提交 + earliest，无 `ALARM_NOTICE` |
+| `test_dispatch_commits_on_ok_and_skip` | ok/skip 提交 offset |
+| `test_dispatch_retries_error_then_commits` | error 不提交，重试后提交 |
+| `test_dispatch_send_raise_does_not_commit_until_ok` | `send_sms` 抛错不提交，重试后提交 |
+| `test_dispatch_commits_undecodable_payload` | 坏 JSON skip 并提交 |
+| `test_handle_red_fills_leader_phone_fallback` | 缺 leaderPhone 填「请登录平台」，红色文案无占位符 |
+| `test_handle_red_uses_leader_phone_from_payload` | 报文带 leaderPhone 则原样填充 |
+| `test_send_sms_retries_when_do_send_raises` | `_do_send` 抛错计入重试，第三次成功 |
+| `test_send_sms_logs_fail_when_do_send_always_raises` | 三次抛错落 status=3，error_msg=RuntimeError |
 
 ## 实现进度
 
-- `sms_service`：`LocalMockSender` / `AliyunSMSSender`、模板渲染、脱敏、日限流 20、指数退避重试 3 次、写 `biz_sms_log`
-- `sms_consumer`：消费 `SMS_NOTIFY_TOPIC`，蓝/黄/橙/红模板映射；缺手机号跳过
+- `sms_service`：网关适配、模板渲染、脱敏、日限流 20、指数退避重试 3 次（含 `_do_send` 抛错）、写 `biz_sms_log`
+- `sms_consumer`：`dispatch_record` 仅 ok/skip 提交；`earliest`；红色 vars 含 `leaderPhone`
 - 启动：`cd src/python && python -m consumers.sms_consumer`
 - 本 Task 不写 HTTP API / 前端（Task 4）
 
@@ -34,11 +42,15 @@
 | hash | message |
 |---|---|
 | `e5997b0` | `feat(sms): 短信网关适配/模板/脱敏/限流/重试` |
+| `74d361a` | `docs(task-3): 补齐自验证快照，阶段标记为待审查` |
+| `49d8f96` | `fix(task-3): review反馈 - 发送失败不提交 offset 并重试` |
+| `42e3e0c` | `fix(task-3): review反馈 - earliest/leaderPhone/网关异常重试` |
 
 ## 问题与处理
 
-- 计划示例落库 status 用 0/1；表结构与 API 约定是 2=成功 / 3=失败 / 4=限流跳过，按 `heat_init.sql`。
-- 计划限流条件 `> 20` 实际会放到 21 条；改为 `>= 20`。
-- 计划缺 phone 时发到 `13800000000`；改为 skip，避免污染发送记录。
-- Topic 用 F0 `SMS_NOTIFY_TOPIC`，不用环境变量硬编码。
-- 未改 `snapshots` 以外的共享文件；独占文件仅 3 个实现/测试文件。
+- 计划示例落库 status 用 0/1；表结构是 2/3/4，按 `heat_init.sql`。
+- 计划限流 `> 20` 会放到 21 条；改为 `>= 20`。
+- 缺 phone skip，不发 `13800000000`。phone 由上游保证（P3-1 书面约定）。
+- Topic 用 F0 `SMS_NOTIFY_TOPIC`。
+- P1-1：无条件 commit 会丢失败短信；改为 `dispatch_record` 与 Task 1 一致。
+- P2-2：红色 `{leaderPhone}` 缺省「请登录平台」，不查组织表。
