@@ -202,6 +202,10 @@ async function loadAlarms() {
   }
 }
 
+function isDialogDismissed(err: unknown) {
+  return err === "cancel" || err === "close";
+}
+
 async function onAck(item: AlarmItem) {
   try {
     const { value } = await ElMessageBox.prompt("请输入确认人", "确认预警", {
@@ -211,16 +215,18 @@ async function onAck(item: AlarmItem) {
       inputPattern: /\S+/,
       inputErrorMessage: "确认人不能为空",
     });
-    await ackAlarm(item.alarmId, String(value).trim());
+    const operator = String(value).trim();
+    if (usingMock.value) {
+      item.status = 1;
+      item.statusName = "已确认";
+      ElMessage.success("已本地确认（Mock）");
+      return;
+    }
+    await ackAlarm(item.alarmId, operator);
     ElMessage.success("预警已确认");
-    usingMock.value = false;
     await loadAlarms();
   } catch (err) {
-    if (err === "cancel") return;
-    item.status = 1;
-    item.statusName = "已确认";
-    usingMock.value = true;
-    ElMessage.success("已本地确认（后端未就绪）");
+    if (isDialogDismissed(err)) return;
   }
 }
 
