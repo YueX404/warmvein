@@ -21,19 +21,30 @@ class _FakeResult:
     def all(self):
         return self._rows
 
+    def first(self):
+        return self._rows[0] if self._rows else None
+
 
 class _FakeSession:
-    def __init__(self, result=None):
+    def __init__(self, result=None, lookup_rows=None):
         self._result = result or _FakeResult()
+        self._lookup = lookup_rows
         self.committed = False
+        self.rolled_back = False
         self.calls = []
 
     def execute(self, stmt, params=None):
-        self.calls.append((str(stmt), params or {}))
-        return self._result
+        sql = str(stmt)
+        self.calls.append((sql, params or {}))
+        if "UPDATE" in sql.upper() or self._lookup is None:
+            return self._result
+        return _FakeResult(self._lookup)
 
     def commit(self):
         self.committed = True
+
+    def rollback(self):
+        self.rolled_back = True
 
     def __enter__(self):
         return self
@@ -97,7 +108,7 @@ def test_alarm_list_rejects_invalid_level(monkeypatch):
 def test_alarm_ack_validates_id(monkeypatch):
     _patch_db(monkeypatch, _FakeSession())
     response = client.post("/api/alarm/ack", json={"alarmId": 0, "operator": "x"})
-    assert response.json()["code"] == 40002 or response.json()["code"] == 40001
+    assert response.json()["code"] == 40001
 
 
 def test_alarm_ack_requires_operator(monkeypatch):
@@ -107,11 +118,19 @@ def test_alarm_ack_requires_operator(monkeypatch):
 
 
 def test_alarm_ack_not_found(monkeypatch):
-    session = _FakeSession(_FakeResult(rowcount=0))
+    session = _FakeSession(_FakeResult(rowcount=0), lookup_rows=[])
     _patch_db(monkeypatch, session)
     response = client.post("/api/alarm/ack", json={"alarmId": 99, "operator": "张三"})
     assert response.json()["code"] == 40002
-    assert session.committed is True
+    assert session.committed is False
+
+
+def test_alarm_ack_rejects_non_open_status(monkeypatch):
+    session = _FakeSession(_FakeResult(rowcount=0), lookup_rows=[{"status": 3}])
+    _patch_db(monkeypatch, session)
+    response = client.post("/api/alarm/ack", json={"alarmId": 99, "operator": "张三"})
+    assert response.json()["code"] == 40001
+    assert session.committed is False
 
 
 def test_alarm_ack_success(monkeypatch):
@@ -123,8 +142,8 @@ def test_alarm_ack_success(monkeypatch):
     assert response.json()["data"]["ok"] is True
     assert session.committed is True
     sql, params = session.calls[0]
-    assert "status" in sql.lower()
-    assert params.get("alarm_id") == 1001 or params.get("a") == 1001
+    assert "status=0" in sql.replace(" ", "")
+    assert params.get("alarm_id") == 1001
     assert "张三" in params.values()
 
 
