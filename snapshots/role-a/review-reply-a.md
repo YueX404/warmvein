@@ -29,6 +29,18 @@
 
 ---
 
+## 二次审查（`docs/二次审查报告-Dev-2-task3-sms-core.md`）
+
+结论：**✅ 通过，可以合入。** 首轮 P1/P2 全部关闭。本轮剩余 P3 不改代码。
+
+| 编号 | 处理 |
+|---|---|
+| P3-R1 | **接受。** 与已合入 Task 1 `dispatch_record` 同源：`TypeError` 与解码写在同一 `except`。现网 `_do_send` 异常已在服务层消化，模板缺失是 `ValueError`→error 重试。后续 chore 与预警消费一并拆开解码/`handle` 的 try。 |
+| P3-R2 | 提交表补 `038ead0`。 |
+| P3-R3 | **接受。** 网关成功后落库失败会 at-least-once 重发。不去重、不改回失败也 commit。后续若要幂等，用回执或 `batch_id+phone`。 |
+
+---
+
 ## Commit
 
 | hash | message |
@@ -37,3 +49,4 @@
 | `74d361a` | `docs(task-3): 补齐自验证快照，阶段标记为待审查` |
 | `49d8f96` | `fix(task-3): review反馈 - 发送失败不提交 offset 并重试` |
 | `42e3e0c` | `fix(task-3): review反馈 - earliest/leaderPhone/网关异常重试` |
+| `038ead0` | `docs(task-3): 审查回复，阶段改为待二次审查` |

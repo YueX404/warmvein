@@ -45,6 +45,7 @@
 | `74d361a` | `docs(task-3): 补齐自验证快照，阶段标记为待审查` |
 | `49d8f96` | `fix(task-3): review反馈 - 发送失败不提交 offset 并重试` |
 | `42e3e0c` | `fix(task-3): review反馈 - earliest/leaderPhone/网关异常重试` |
+| `038ead0` | `docs(task-3): 审查回复，阶段改为待二次审查` |
 
 ## 问题与处理
 
@@ -54,3 +55,4 @@
 - Topic 用 F0 `SMS_NOTIFY_TOPIC`。
 - P1-1：无条件 commit 会丢失败短信；改为 `dispatch_record` 与 Task 1 一致。
 - P2-2：红色 `{leaderPhone}` 缺省「请登录平台」，不查组织表。
+- 二次审查通过：P3-R1 接受（TypeError 与解码同 except，与 Task 1 一致）；P3-R3 接受 at-least-once。
