@@ -18,6 +18,9 @@ from services import alarm_engine
 
 logger = logging.getLogger(__name__)
 
+COMMIT_STATUSES = frozenset({"skip", "dedup", "ok"})
+RETRY_BACKOFF_SEC = 2
+
 
 def _parse_alarm(msg):
     if not isinstance(msg, dict):
@@ -30,7 +33,7 @@ def _parse_alarm(msg):
     if not isinstance(alarm_type, str) or alarm_type not in alarm_engine.KNOWN_ALARM_TYPES:
         return None
     raw_level = msg.get("level")
-    if isinstance(raw_level, str):
+    if alarm_type == "frost" and isinstance(raw_level, str):
         level = alarm_engine.risk_level_from_frost(raw_level)
     else:
         level = alarm_engine.judge_level(alarm_type, raw_level)
@@ -80,19 +83,36 @@ def handle_alarm(msg, redis_client=None, session_factory=None, publish=None):
     return "ok"
 
 
+def dispatch_record(msg, consumer, handle=None, sleep=None):
+    handle = handle or handle_alarm
+    sleep = sleep or time.sleep
+    while True:
+        try:
+            payload = json.loads(msg.value.decode())
+            result = handle(payload)
+        except (json.JSONDecodeError, UnicodeDecodeError, TypeError):
+            logger.exception("skip undecodable alarm")
+            result = "skip"
+        except Exception:
+            logger.exception("alarm handle failed")
+            result = "error"
+        if result in COMMIT_STATUSES:
+            consumer.commit()
+            return result
+        logger.warning("alarm handle error, retry without commit")
+        sleep(RETRY_BACKOFF_SEC)
+
+
 def consume():
     consumer = KafkaConsumer(
         HEAT_ALARM_TOPIC,
         bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
         auto_offset_reset="earliest",
         group_id="alarm_engine",
+        enable_auto_commit=False,
     )
     for msg in consumer:
-        try:
-            payload = json.loads(msg.value.decode())
-            handle_alarm(payload)
-        except Exception:
-            logger.exception("alarm handle failed")
+        dispatch_record(msg, consumer)
 
 
 if __name__ == "__main__":

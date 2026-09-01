@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from services.alarm_engine import (
     DEDUP_WINDOW_SEC,
@@ -7,7 +8,7 @@ from services.alarm_engine import (
     risk_level_from_frost,
     to_schema_type,
 )
-from consumers.alarm_consumer import handle_alarm
+from consumers.alarm_consumer import dispatch_record, handle_alarm
 
 
 def test_judge_frost_red():
@@ -154,9 +155,71 @@ def test_handle_frost_string_level():
     assert session.rows[0]["l"] == 4
 
 
+def test_handle_non_frost_string_level_uses_type_table():
+    result, _, session, _ = _handle(
+        {"station_id": 1, "alarmType": "corrosion", "level": "high"}
+    )
+    assert result == "ok"
+    assert session.rows[0]["l"] == 2
+
+
+class _FakeMsg:
+    def __init__(self, payload):
+        self.value = (
+            payload if isinstance(payload, bytes)
+            else json.dumps(payload).encode()
+        )
+
+
+class _FakeKafka:
+    def __init__(self):
+        self.commits = 0
+
+    def commit(self):
+        self.commits += 1
+
+
+def test_dispatch_commits_on_ok_skip_dedup():
+    kafka = _FakeKafka()
+    assert dispatch_record(_FakeMsg(_VALID), kafka, handle=lambda _: "ok") == "ok"
+    assert kafka.commits == 1
+    kafka = _FakeKafka()
+    dispatch_record(_FakeMsg(_VALID), kafka, handle=lambda _: "skip")
+    assert kafka.commits == 1
+    kafka = _FakeKafka()
+    dispatch_record(_FakeMsg(_VALID), kafka, handle=lambda _: "dedup")
+    assert kafka.commits == 1
+
+
+def test_dispatch_retries_error_then_commits():
+    kafka = _FakeKafka()
+    n = {"i": 0}
+
+    def flaky(_payload):
+        n["i"] += 1
+        return "error" if n["i"] == 1 else "ok"
+
+    slept = []
+    result = dispatch_record(
+        _FakeMsg(_VALID), kafka, handle=flaky, sleep=slept.append
+    )
+    assert result == "ok"
+    assert n["i"] == 2
+    assert kafka.commits == 1
+    assert slept
+
+
+def test_dispatch_commits_undecodable_payload():
+    kafka = _FakeKafka()
+    result = dispatch_record(_FakeMsg(b"not-json"), kafka, handle=lambda _: "ok")
+    assert result == "skip"
+    assert kafka.commits == 1
+
+
 def test_consumer_has_main_guard():
     text = Path("src/python/consumers/alarm_consumer.py").read_text(
         encoding="utf-8"
     )
     assert 'if __name__ == "__main__"' in text
     assert "consume()" in text
+    assert "enable_auto_commit=False" in text
