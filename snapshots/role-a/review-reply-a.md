@@ -1,52 +1,42 @@
-# Task-3 Code Review 回复
+# Task-6 Code Review 回复
 
-审查来源：`docs/审查报告-Dev-2-task3-sms-core.md`  
-处理分支：`dev-2/feature/task3-sms-core`
+审查来源：`docs/审查报告-Dev-2-task6-workorder.md`  
+处理分支：`dev-2/feature/task6-workorder`
 
 ## P1 阻断（已修）
 
 | 编号 | 处理 |
 |---|---|
-| P1-1 | 抽出 `dispatch_record`：仅 `skip`/`ok` 时 `commit()`；`error`（含 `send_sms` 抛错）不提交，退避 2s 后重试同一条。无法解码的报文当 `skip` 提交，避免毒消息堵分区。测试覆盖 ok/skip 提交、error 重试、抛错不提交、坏 JSON skip+commit。 |
+| P1-1 | 路由层 `_to_api` 输出 `orderId` / `alarmId` / `assignee` / `status` / `statusName` / `createdAt` / `updatedAt` / `trace`。`get_order` 联查 `biz_work_order_trace`。测试不再断言 `alarm_id`。 |
 
-## P2（已修）
-
-| 编号 | 处理 |
-|---|---|
-| P2-1 | `auto_offset_reset="earliest"`，与 Task 1 和 `.env.example` 对齐。 |
-| P2-2 | `handle_notify` 的 vars 增加 `leaderPhone`：报文字段优先，缺省填「请登录平台」，红色模板不再留下 `{leaderPhone}`。不在本 Task 查 `md_organization`。 |
-| P2-3 | 与 P1-1 同一组 `dispatch_record` 单测。 |
-| P2-4 | `_do_send` 包在 try 中，异常视为 `success=False` 进入指数退避；三次仍失败落 `status=3`，`error_msg` 记异常类型。 |
-
-## P3 / 🔵
+## P2（已修 / 保留）
 
 | 编号 | 处理 |
 |---|---|
-| P3-1 **phone 契约** | **缺合法 11 位手机号则 skip。phone 由上游保证，本消费端不查库补号。** 已合入的 Task 1 `publish_sms` 当前不带 `phone`，本 Task 合入后预警→短信会 skip，这是已知空转，不是短信服务故障。补号属于 Task 1 follow-up 或后续按 `station_id` 查责任人/订阅的独立任务。 |
-| P3-2 | 接受：缺 `stationName` 时回落 `station_id`。上游后续补站名。 |
-| P3-3 | 接受 follow-up：限流非原子、TTL 滑动 24h。本轮不改 Redis 脚本。 |
-| P3-4 | `error_msg` 已随 P2-4 写入。`batch_id` 同秒混批、`get_sender` 未走 `settings.SMS_PROVIDER`、停用模板仍可发、Aliyun stub、冻堵走 `ALARM_RED` 而非 `FROST`：接受或记 follow-up，本轮不改。 |
+| P2-1 | `alarmId` 必须是正整数（`type is int`，排除 `bool`）；`assignee` strip 后非空且 ≤32；非法一律 40001。 |
+| P2-2 | 同一事务内插入 `biz_work_order_trace`：`action=create`，`operator=系统`。GET 按 `order_id` 查出 `trace`。 |
+| P2-3 | **本分支不改 `tests/test_scaffold.py`。** 合入前需在 main 单独 chore 放宽空桩断言，或本 PR 依赖该 chore 先合。 |
+| P2-4 | 拆开缺字段 / 非 int / bool / 空白 / 超长用例；INSERT SQL 断言含 `status` 与 `,0,`；API 断言 camelCase。 |
+
+## P3
+
+| 编号 | 处理 |
+|---|---|
+| P3-1 | **有意切片。** 本 Task 子计划只交付 `create_from_alarm` + `get_order` 与两条 API。状态写入 `0=待派`，派单人由调用方传入，没有接单/核验/超时升级接口。状态机流转与智能派单不在本 PR；Task 7 只追加巡检与前端，流转 API 需另开任务。 |
+| P3-2 | 本轮保证冻结契约 `{status, trace}`，并按 P1-1 补齐 mock 所需 camelCase 字段。不返回 `title` / `orderType` / `priority` / `stationId`（计划 SELECT 仅 6 列，创建也未写这些字段）。 |
+| P3-3 | 开发记录 commit 表已补齐。 |
+| P3-4 | 单测仍走 FakeSession。`lastrowid` 为空时抛错，避免 `orderId` 为 `None` 仍 `code=0`。真 MySQL INSERT 冒烟合入后做。 |
 
 ---
 
-## 二次审查（`docs/二次审查报告-Dev-2-task3-sms-core.md`）
-
-结论：**✅ 通过，可以合入。** 首轮 P1/P2 全部关闭。本轮剩余 P3 不改代码。
-
-| 编号 | 处理 |
-|---|---|
-| P3-R1 | **接受。** 与已合入 Task 1 `dispatch_record` 同源：`TypeError` 与解码写在同一 `except`。现网 `_do_send` 异常已在服务层消化，模板缺失是 `ValueError`→error 重试。后续 chore 与预警消费一并拆开解码/`handle` 的 try。 |
-| P3-R2 | 提交表补 `038ead0`。 |
-| P3-R3 | **接受。** 网关成功后落库失败会 at-least-once 重发。不去重、不改回失败也 commit。后续若要幂等，用回执或 `batch_id+phone`。 |
+处理 commit：`76dbac4`（P1-1）、`19bd4d7`（P2-1/2/4）。
 
 ---
 
-## Commit
+## 二次审查（`docs/二次审查报告-Dev-2-task6-workorder.md`）
 
-| hash | message |
+| 编号 | 处理 |
 |---|---|
-| `e5997b0` | `feat(sms): 短信网关适配/模板/脱敏/限流/重试` |
-| `74d361a` | `docs(task-3): 补齐自验证快照，阶段标记为待审查` |
-| `49d8f96` | `fix(task-3): review反馈 - 发送失败不提交 offset 并重试` |
-| `42e3e0c` | `fix(task-3): review反馈 - earliest/leaderPhone/网关异常重试` |
-| `038ead0` | `docs(task-3): 审查回复，阶段改为待二次审查` |
+| 结论 | ✅ 通过。首轮 P1/P2（本分支代码项）已关闭。 |
+| P2-3 | 维持：合入前在 main chore 放宽 `test_scaffold.py`，本分支不改。 |
+| P3-R1 | 开发记录 commit 表补上 `9ee53e7`。 |
