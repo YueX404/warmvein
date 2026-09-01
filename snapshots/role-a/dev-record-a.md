@@ -37,6 +37,7 @@
 | `8e59df0` | `docs(task-6): 补齐自验证快照，阶段标记为待审查` |
 | `76dbac4` | `fix(task-6): review反馈 - GET 详情改为 camelCase 并返回 trace` |
 | `19bd4d7` | `fix(task-6): review反馈 - 入参校验与创建写轨迹` |
+| `9ee53e7` | `docs(task-6): 审查回复，阶段改为待二次审查` |
 
 ## 问题与处理
 
