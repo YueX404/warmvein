@@ -55,6 +55,16 @@ def _to_int(value: Any, default: int = 0) -> int:
     return int(value)
 
 
+def _is_db_error(exc: BaseException) -> bool:
+    if isinstance(exc, OSError):
+        return True
+    return type(exc).__name__ in {
+        "OperationalError",
+        "InterfaceError",
+        "DisconnectionError",
+    }
+
+
 def _fetch_all(sql: str, params: dict = None) -> list:
     global _DB_DOWN
     if _DB_DOWN:
@@ -64,7 +74,8 @@ def _fetch_all(sql: str, params: dict = None) -> list:
             rows = session.execute(text(sql), params or {}).mappings().all()
         return [dict(row) for row in rows]
     except Exception as exc:
-        _DB_DOWN = True
+        if _is_db_error(exc):
+            _DB_DOWN = True
         raise _DbUnavailable() from exc
 
 
@@ -279,6 +290,7 @@ def _pipe_loss_item(pipe: dict, snap: dict) -> dict:
         "supplyTemp": round(tg, 2),
         "returnTemp": round(th, 2),
         "outdoorTemp": round(tamb, 2),
+        "stationId": _to_int(pipe.get("station_id")),
         "heatLossW": round(loss_w, 1),
         "totalLossKwh": round(loss_w * 24.0 / 1000.0, 2),
     }
@@ -299,41 +311,26 @@ def get_loss(date: str) -> dict:
     return {"date": date, "pipeLoss": items, "totalLossW": round(total_w, 1)}
 
 
-def _try_compute_kpi(date: str, region: str = None) -> Optional[dict]:
-    try:
-        from services.energy import compute_kpi
-    except ImportError:
-        return None
-    return compute_kpi(date, region)
-
-
 def get_energy(date: str, region: str = None) -> dict:
-    kpi = _try_compute_kpi(date, region)
-    if kpi is not None:
-        heat_loss = _to_float(kpi.get("heatLossKwh"))
-        heat_gj = _to_float(kpi.get("heatSupplyGj"))
-        return {
-            "date": date,
-            "totalHeatEnergy": heat_gj,
-            "totalHeatLoss": heat_loss,
-            "heatLossRate": round(heat_loss / heat_gj, 4) if heat_gj else 0.0,
-            "unitEnergy": _to_float(kpi.get("unitHeatKwh")),
-            "avgRoomTemp": 21.5,
-            "energySavingRate": 8.3,
-            "carbonReduction": 2.1,
-        }
-    loss = get_loss(date)
-    total_loss = round(sum(p["totalLossKwh"] for p in loss["pipeLoss"]), 2)
-    heat_gj = round(max(total_loss / 12.0, 1.0), 2)
+    from services.energy import benchmark, compute_kpi
+
+    kpi = compute_kpi(date, region)
+    bench = benchmark(kpi)
+    heat_loss = _to_float(kpi.get("heatLossKwh"))
+    heat_gj = _to_float(kpi.get("heatSupplyGj"))
+    heat_kwh = heat_gj * 277.78
+    saving = {"high": 0.0, "mid": 4.0, "low": 8.3}.get(bench["gap"], 0.0)
     return {
         "date": date,
         "totalHeatEnergy": heat_gj,
-        "totalHeatLoss": total_loss,
-        "heatLossRate": round(total_loss / (heat_gj * 277.78) * 100, 2) if heat_gj else 0.0,
-        "unitEnergy": round(total_loss / heat_gj, 4) if heat_gj else 0.0,
+        "totalHeatLoss": heat_loss,
+        "heatLossRate": round(heat_loss / heat_kwh * 100, 2) if heat_kwh else 0.0,
+        "unitEnergy": _to_float(kpi.get("unitHeatKwh")),
+        "sourcePowerKwh": _to_float(kpi.get("sourcePowerKwh")),
         "avgRoomTemp": 21.5,
-        "energySavingRate": 8.3,
-        "carbonReduction": round(total_loss * 0.0008, 2),
+        "energySavingRate": saving,
+        "carbonReduction": round(heat_loss * 0.0008, 2),
+        "benchmark": bench,
     }
 
 
@@ -352,8 +349,9 @@ def _insert_console_action(station_id: int, tg_set: float, th_set: float, tw: fl
             result = session.execute(text(sql), params)
             session.commit()
             return int(result.lastrowid or 0)
-    except Exception:
-        _DB_DOWN = True
+    except Exception as exc:
+        if _is_db_error(exc):
+            _DB_DOWN = True
         return 0
 
 

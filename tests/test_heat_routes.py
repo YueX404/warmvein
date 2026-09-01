@@ -16,10 +16,11 @@ def _offline_backends():
     import services.heat_run as heat_run_mod
 
     heat_run_mod._DB_DOWN = False
-    with patch("services.heat_run.SessionLocal", side_effect=OSError("offline")):
-        with patch("services.heat_run.redis_client") as mock_redis:
-            mock_redis.get.return_value = None
-            yield
+    with patch("services.energy.SessionLocal", side_effect=OSError("offline")):
+        with patch("services.heat_run.SessionLocal", side_effect=OSError("offline")):
+            with patch("services.heat_run.redis_client") as mock_redis:
+                mock_redis.get.return_value = None
+                yield
     heat_run_mod._DB_DOWN = False
 
 
@@ -96,6 +97,9 @@ def test_energy_endpoint():
     assert data["date"] == "2026-08-31"
     assert "totalHeatEnergy" in data
     assert "totalHeatLoss" in data
+    assert "unitEnergy" in data
+    assert "sourcePowerKwh" in data
+    assert data["benchmark"]["gap"] in ("high", "mid", "low")
 
 
 def test_climate_compensate():
@@ -113,5 +117,29 @@ def test_climate_compensate():
 
 def test_climate_missing_fields():
     r = client.post("/api/console/climate-compensate", json={"stationId": 1})
+    assert r.status_code == 200
+    assert r.json()["code"] == 40001
+
+
+def test_climate_unknown_station():
+    r = client.post(
+        "/api/console/climate-compensate",
+        json={"stationId": 99999, "tw": -5.0},
+    )
+    assert r.status_code == 200
+    assert r.json()["code"] == 40002
+
+
+def test_energy_rejects_bad_region():
+    r = client.get(
+        "/api/heat/energy",
+        params={"date": "2026-08-31", "region": "ansai;drop"},
+    )
+    assert r.status_code == 200
+    assert r.json()["code"] == 40001
+
+
+def test_energy_missing_date():
+    r = client.get("/api/heat/energy")
     assert r.status_code == 200
     assert r.json()["code"] == 40001
