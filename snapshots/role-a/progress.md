@@ -2,13 +2,21 @@
 
 **当前 PR / Task：** Dev-2 Task 6 工单状态机与智能派单  
 **分支：** `dev-2/feature/task6-workorder`  
-**阶段状态：** 开发完成，待审查
+**阶段状态：** 修复完成，待二次审查
 
 ## 自验证（2026-09-01）
 
 对照 `docs/superpowers/plans/Dev-2-task6-workorder.md` 通过。
 
-- `pytest tests/test_workorder.py -v` → 6 passed
-- `pytest tests/ -v` → 28 passed；`test_scaffold.py::test_all_seven_module_routers_exist` 失败（F0 空桩，本 Task 按文件所有权不改）
-- 改动范围仅 `services/workorder.py`、`routes_workorder.py`、`tests/test_workorder.py` 及本快照
-- 详情见 `snapshots/role-a/dev-record-a.md`
+- `pytest tests/test_workorder.py -v` → 当时 6 passed
+- 改动范围仅 Task 6 独占文件及本快照
+
+## 审查修复（2026-09-01）
+
+对照 `docs/审查报告-Dev-2-task6-workorder.md`：
+
+- 🔴 P1-1 已修（GET camelCase + `trace`）
+- 🟡 P2-1 / P2-2 / P2-4 已修；P2-3 不在本分支改 `test_scaffold.py`
+- 🔵 P3-1～P3-4 见 `snapshots/role-a/review-reply-a.md`
+
+`pytest tests/test_workorder.py -v` → 13 passed。
