@@ -1,7 +1,7 @@
-# Task-8 审查反馈处理记录
+# Task-5 审查反馈处理记录
 
-审查来源：`docs/审查报告-Dev-2-task8-plan.md`  
-处理分支：`dev-2/feature/task8-plan`  
+审查来源：`snapshots/role-a/review-feedback-a.md`  
+处理分支：`dev-2/feature/task5-forecast`  
 处理时间：2026-09-01
 
 ## 🔴 阻断性问题
@@ -12,36 +12,27 @@
 
 | 编号 | 处理 | 说明 |
 |---|---|---|
-| P2-1 | 修复 | `activate` 改为 `WHERE plan_id=:p AND status=1`。停用视为不存在，路由仍返回 40002。新增 `test_activate_rejects_disabled_plan`。 |
-| P2-2 | 修复 | 路由层校验：`alarmType` 非空字符串且 ≤32；`level` 缺省 2，必须是 1–4 的 int（排除 bool）；`planId` 正整数；`operator` 去空白且 ≤32。非法一律 40001。 |
-| P2-3 | 修复 | `_TYPE_MAP` 增加 `theft→third_party`，并显式写入 `freeze`/`burst`/`third_party` 自身映射。 |
-| P2-4 | 修复 | 目录标注「Mock，非库内数据」；点选仅预览步骤，启动按钮禁用。新增手工种子 `config/mysql/plan_seed.sql`（未改 `heat_init.sql`）。第三方破坏种子级别改为 2，与 Task 1 `steal` 默认级对齐。 |
-| P2-5 | 修复 | 补 `POST /api/plan/match`、`POST /api/plan/activate` 成功路径。FakeSession 对 `biz_plan` / `biz_plan_execution` 表名和列名、以及存在性查询的 `status=1` 做断言。 |
+| 🟡-1 | 采纳 | Hive SQL 改为 `supply_temp AS supplyTemp` 等 F0 列别名；回退日志改为 `Hive feature query failed`，不再写「Hive unavailable」。 |
+| 🟡-2 | 采纳 | 合成样本把低供水温度与高腐蚀分到不同行（各约一半异常配额）。 |
+| 🟡-3 | 采纳 | ML 用例改为 `train_anomaly_model` 产出 `Pipeline`，对极端样本断言 `is_anomaly==1`。 |
+| 🟡-4 | 采纳 | 列表 SELECT/映射补 `description`、`suggestion`。未加 `pipe_id`（审查只要求至少前两项）。 |
+| 🟡-5 | 采纳 | `MODEL_DIR` 读 `settings.MODEL_DIR`，相对路径按仓库根解析为绝对路径。未改冻结的 `config/settings.py`。 |
+| 🟡-6 | 采纳 | 新增手工种子 `config/mysql/forecast_seed.sql`（未改 `heat_init.sql`）。空表是未执行种子时的预期。 |
 
 ## 🔵 疑问确认
 
 | 编号 | 结论 |
 |---|---|
-| P3-1 | **锁定跟计划走**：响应为 snake_case 单对象（`ok(plan.match(...))`）。不在本 Task 改成 api-guide 的 `{plans:[{planId}]}`。后续改 api-guide 对齐本契约。 |
-| P3-2 | **保持精确匹配**（同级或 `alarm_level IS NULL`）。与计划 SQL 一致。级别覆盖靠种子数据（冻堵 L4、爆管 L4、停暖 L2、第三方 L2），不做「≥ 该级别」。 |
-| P3-3 | **接受管理页不传 alarmId**。已加 `ElMessageBox.confirm`。重复启动仍会写多条执行单（有意：一次启动一条记录）。 |
-| P3-4 | 修复：`onActivate` 增加 `catch`，避免 unhandled rejection。 |
-| P3-5 | 修复：Commit 表补 `8ea5e67` 及后续审查修复提交。 |
-| P3-6 | 保留。非对象 body 走 FastAPI 422 是全站共性，不在本 Task 单独包一层。 |
+| 🔵-1 | **按计划并排放进同一切片**。`remain_life` / `predict_anomaly` 是可调用纯函数与训练产物；`GET /api/forecast/list` 只读 `biz_forecast`。本 Task **没有**预报落库/消费者，列表 **不会**按模型实时计算。角色 B 应按表记录渲染。 |
+| 🔵-2 | **本 PR 不改 api-guide**。契约维持功能开发文档：`data` 为 `forecast[]`，无 `page/pageSize`。合入后另开 chore 同步 api-guide，避免前端按 `{total, forecasts}` 解包失败。 |
+| 🔵-3 | **本窗口不 rebase**（并行多分支）。合入时 `snapshots/role-a/*` 以各分支自带快照为准，不要覆盖 master 上已合入 Task 的进度说明。 |
+| 🔵-4 | **本 Task 不把 `remain_life` 接到 HTTP**。负数（`W_current < W_min`）与 `inf` 的序列化待接入 API 时再定（建议下限夹 0，`inf` 用 null 或独立字段）。当前保持公式原样。 |
+| 🔵-5 | 已改 `tests/test_alarm_routes.py` 文件头，去掉「forecast out of scope」。 |
+| 🔵-6 | **不是漏做**。`HEAT_FORECAST_TOPIC` 由 F0 提供，本 Task 计划不生产/消费。 |
 
 ## 验证
 
-- `pytest tests/test_plan.py -v` → 19 passed
-- `npx vue-tsc --noEmit`（`web/`）→ exit 0
+- `pytest tests/test_forecast.py tests/test_alarm_routes.py -v` → 24 passed
+- `pytest tests` → 119 passed
 
-审查修复提交：`5ecbb75`、`1df300a`。文档提交：`c0e5191`。
-
-## 二次审查（2026-09-01）
-
-来源：`docs/二次审查报告-Dev-2-task8-plan.md`。结论：通过，建议合入。首轮 P2 全部关闭。
-
-| 编号 | 处理 | 说明 |
-|---|---|---|
-| P3-R1 | 修复 | Commit 表补 `c0e5191`。 |
-| P3-R2 | 修复 | `plan_seed.sql` 改为按 `plan_type` `WHERE NOT EXISTS`，可重复执行。仍不并入 `heat_init.sql`。 |
-| P3-R3 | 修复 | 启动人输入框 `maxlength="32"`。 |
+审查修复提交：`b2b7649`。

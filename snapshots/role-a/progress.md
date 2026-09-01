@@ -2,12 +2,13 @@
 
 **PR / Task：** Dev-2 Task 5 故障预报与寿命预测  
 **分支：** `dev-2/feature/task5-forecast`  
-**阶段状态：** 开发完成，待审查
+**阶段状态：** 修复完成，待二次审查
 
 | 项 | 结果 |
 |---|---|
-| 核心功能 | `remain_life` / `predict_anomaly` / `GET /api/forecast/list` / IsolationForest 训练脚本 |
-| 自验证 | 2026-09-01 通过；`pytest tests` **116 passed** |
-| 范围 | 独占文件 + `routes_alarm.py` 末尾追加；Task 2 护栏测试改为保留 list/ack |
+| 首轮审查 | ✅ 通过，无 🔴 |
+| 🟡 | 6 条全部采纳（Hive 列名、合成异常、Pipeline 单测、列表 description/suggestion、MODEL_DIR、种子 SQL） |
+| 🔵 | 已在 `review-reply-a.md` 回复 |
+| 验证 | 2026-09-01；`pytest tests` **119 passed** |
 
-下一步：切换审查窗口，对 `dev-2/feature/task5-forecast` 做 diff 审查，写入 `snapshots/role-a/review-feedback-a.md`。
+下一步：切换审查窗口做二次审查，写入/更新 `snapshots/role-a/review-feedback-a.md`。
