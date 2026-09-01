@@ -94,6 +94,16 @@ def test_match_maps_steal_to_third_party(monkeypatch):
     assert row["plan_type"] == "third_party"
 
 
+def test_match_maps_shutdown(monkeypatch):
+    session = _FakeSession(
+        rows=[{"plan_id": 3, "plan_type": "shutdown", "alarm_level": 2, "status": 1}]
+    )
+    monkeypatch.setattr(plan, "SessionLocal", lambda: session)
+    row = plan.match("shutdown", 2)
+    assert row["plan_type"] == "shutdown"
+    assert row["plan_id"] == 3
+
+
 def test_match_empty_returns_type(monkeypatch):
     monkeypatch.setattr(plan, "SessionLocal", lambda: _FakeSession(rows=[]))
     row = plan.match("frost", 4)
@@ -131,3 +141,10 @@ def test_plan_activate_validates():
     client = TestClient(app)
     res = client.post("/api/plan/activate", json={})
     assert res.json()["code"] == 40001
+
+
+def test_plan_activate_not_found(monkeypatch):
+    monkeypatch.setattr(plan, "activate", lambda *args, **kwargs: 0)
+    client = TestClient(app)
+    res = client.post("/api/plan/activate", json={"planId": 1})
+    assert res.json()["code"] == 40002
