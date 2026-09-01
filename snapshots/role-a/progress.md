@@ -2,17 +2,21 @@
 
 **当前 PR / Task：** Dev-2 Task 1 预警判定与降噪聚合  
 **分支：** `dev-2/feature/task1-alarm-engine`  
-**阶段状态：** 开发完成，待审查
+**阶段状态：** 修复完成，待二次审查
 
 ## 自验证（2026-09-01）
 
 | 项 | 结论 |
 |---|---|
-| 分支与提交 | 通过。工作区干净，相对 master 仅 1 个 commit `c7a7b42` |
-| 核心功能 | 通过。见下方清单 |
-| 测试 | 对照计划通过：`pytest tests/ -v` → 9 passed（含 4 条本 Task + 5 条脚手架） |
-| 调试残留 | 通过。无 print / pdb / TODO |
-| 改动范围 | 通过。仅 3 个独占文件 |
-| 开发快照 | 本次补齐 `dev-record-a.md` |
+| 分支与提交 | 通过 |
+| 核心功能 | 通过 |
+| 测试 | 对照计划通过 |
+| 调试残留 | 通过 |
+| 改动范围 | 通过 |
+| 开发快照 | 通过 |
 
-禁止修改的共享文件未动：`main.py`、`kafka_topics.py`、`response.py`、`db.py`、`config/settings.py`、`config/mysql/heat_init.sql`、`routes_alarm.py`。
+## 审查修复（2026-09-01）
+
+对照 `docs/审查报告-Dev-2-task1-alarm-engine.md`：P1 全部修复；P2 全部修复；P3 已处理。  
+`pytest tests/ -v` → 19 passed。  
+详情见 `snapshots/role-a/review-reply-a.md`。
