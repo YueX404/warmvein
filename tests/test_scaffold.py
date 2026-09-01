@@ -29,6 +29,7 @@ def test_all_seven_module_routers_exist():
         "twin_router",
         "public_router",
     )
+    assert main.heat_router.routes, "heat_router 应由 Dev-1 Task 1 填充主数据接口"
     for name in names:
         router = getattr(main, name)
         assert isinstance(router, APIRouter)
