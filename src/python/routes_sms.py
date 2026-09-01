@@ -12,12 +12,12 @@ from services import sms_service
 router = APIRouter()
 
 _TEMPLATE_MAX = 32
-_PHONE_MAX = 11
+_PHONE_BATCH_MAX = 20
 _BATCH_MAX = 32
 _LIST_LIMIT = 200
 _LIST_SQL = (
-    "SELECT id, batch_id, phone_masked, template_code, status, receipt, created_at "
-    "FROM biz_sms_log WHERE 1=1"
+    "SELECT id, batch_id, phone_masked, template_code, status, receipt, "
+    "error_msg, content, created_at FROM biz_sms_log WHERE 1=1"
 )
 
 
@@ -37,11 +37,14 @@ def _parse_send(body: dict):
     phones = body.get("phones")
     if not isinstance(phones, list) or not phones:
         return None, "缺少 templateCode 或 phones"
+    if len(phones) > _PHONE_BATCH_MAX:
+        return None, "phones 超出单次上限"
     cleaned = []
     for phone in phones:
-        if not isinstance(phone, str) or not phone.strip() or len(phone.strip()) > _PHONE_MAX:
+        item = phone.strip() if isinstance(phone, str) else ""
+        if not sms_service.is_mobile(item):
             return None, "phones 非法"
-        cleaned.append(phone.strip())
+        cleaned.append(item)
     vars_map = body.get("vars", {})
     if vars_map is None:
         vars_map = {}
@@ -58,6 +61,8 @@ def _to_log(row: dict) -> dict:
         "templateCode": row.get("template_code"),
         "status": row.get("status"),
         "receipt": row.get("receipt"),
+        "errorMsg": row.get("error_msg") or "",
+        "content": row.get("content") or "",
         "createdAt": _fmt_time(row.get("created_at")),
     }
 

@@ -91,22 +91,27 @@
             <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="receipt" label="回执" />
+        <el-table-column prop="errorMsg" label="失败原因" min-width="140" />
+        <el-table-column prop="receipt" label="回执" width="120" />
       </el-table>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { getSmsLog, isSmsBackendUnreachable, maskPhone, sendSms, type SmsLogRow } from "@/services/sms.api";
 import { filterLogs, templates, type SmsTemplate } from "@/mock/sms.mock";
 
 const SCENE_LABEL: Record<string, string> = {
+  alarm_blue: "蓝色预警",
+  alarm_yellow: "黄色预警",
+  alarm_orange: "橙色预警",
   alarm_red: "红色预警",
   shutdown: "停暖公告",
   frost: "冻堵防寒",
+  public: "公众通知",
 };
 
 const STATUS_LABEL: Record<number, string> = {
@@ -171,6 +176,16 @@ function pickTemplate(item: SmsTemplate) {
     delete vars[key];
   });
 }
+
+watch(templateCode, (code) => {
+  const hit = templates.find((item) => item.templateCode === code.trim()) ?? null;
+  if (hit?.templateCode !== selected.value?.templateCode) {
+    Object.keys(vars).forEach((key) => {
+      delete vars[key];
+    });
+  }
+  selected.value = hit;
+});
 
 async function onSend() {
   const phones = phoneList.value;

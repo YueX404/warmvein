@@ -8,6 +8,8 @@ export type SmsLogRow = {
   templateCode: string;
   status: number;
   receipt?: string;
+  errorMsg?: string;
+  content?: string;
   createdAt: string;
 };
 

@@ -76,6 +76,41 @@ def test_sms_send_rejects_non_string_phone():
     assert r.json()["code"] == 40001
 
 
+def test_sms_send_rejects_short_phone():
+    r = client.post("/api/sms/send", json={"templateCode": "ALARM_RED", "phones": ["1381234"]})
+    assert r.json()["code"] == 40001
+
+
+def test_sms_send_rejects_non_digit_phone():
+    r = client.post(
+        "/api/sms/send",
+        json={"templateCode": "ALARM_RED", "phones": ["abcdefghijk"]},
+    )
+    assert r.json()["code"] == 40001
+
+
+def test_sms_send_rejects_too_many_phones():
+    phones = [f"1381234{i:04d}" for i in range(21)]
+    r = client.post("/api/sms/send", json={"templateCode": "ALARM_RED", "phones": phones})
+    assert r.json()["code"] == 40001
+
+
+def test_sms_send_rejects_long_template_code():
+    r = client.post(
+        "/api/sms/send",
+        json={"templateCode": "A" * 33, "phones": ["13812341234"]},
+    )
+    assert r.json()["code"] == 40001
+
+
+def test_sms_send_rejects_non_dict_vars():
+    r = client.post(
+        "/api/sms/send",
+        json={"templateCode": "ALARM_RED", "phones": ["13812341234"], "vars": []},
+    )
+    assert r.json()["code"] == 40001
+
+
 def test_sms_send_template_not_found(monkeypatch):
     def _raise(*_args, **_kwargs):
         raise ValueError("template not found")
@@ -138,3 +173,29 @@ def test_sms_log_caps_result_size(monkeypatch):
     sql, params = session.calls[0]
     assert "limit" in sql.lower()
     assert params.get("limit") == 200
+
+
+def test_sms_log_rejects_long_batch_id(monkeypatch):
+    _patch_db(monkeypatch, _FakeSession(rows=[]))
+    r = client.get("/api/sms/log", params={"batchId": "b" * 33})
+    assert r.json()["code"] == 40001
+
+
+def test_sms_log_returns_error_msg(monkeypatch):
+    _patch_db(
+        monkeypatch,
+        _FakeSession(
+            rows=[
+                _sample_log(
+                    status=3,
+                    receipt="",
+                    error_msg="Timeout",
+                    content="【暖脉供热】一号站紧急预警",
+                )
+            ]
+        ),
+    )
+    r = client.get("/api/sms/log", params={"batchId": "b1"})
+    row = r.json()["data"][0]
+    assert row["errorMsg"] == "Timeout"
+    assert row["content"] == "【暖脉供热】一号站紧急预警"
