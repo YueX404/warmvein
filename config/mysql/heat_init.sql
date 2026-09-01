@@ -430,3 +430,15 @@ VALUES
   (28, 'AIR-002-01', '公用工程车间2号楼201', '13800004004', 10, 63.0, 1),
   (29, 'AIR-002-02', '公用工程车间2号楼202', '13800004005', 10, 61.0, 1),
   (30, 'AIR-002-03', '公用工程车间2号楼203', '13800004006', 10, 59.0, 0);
+
+-- 公众线上报修（Dev-1 Task 10，追加，不改既有表）
+CREATE TABLE IF NOT EXISTS biz_repair_report (
+  id            BIGINT       PRIMARY KEY AUTO_INCREMENT COMMENT '报修单ID',
+  user_id       BIGINT       NOT NULL COMMENT '报修用户ID',
+  description   VARCHAR(255) NOT NULL COMMENT '报修描述',
+  status        TINYINT      NOT NULL DEFAULT 0 COMMENT '0=待受理 1=处理中 2=已完成 3=已关闭',
+  created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_user (user_id),
+  INDEX idx_status (status),
+  INDEX idx_created (created_at)
+) ENGINE=InnoDB COMMENT='公众线上报修';
