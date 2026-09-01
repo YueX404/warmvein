@@ -1,49 +1,33 @@
-# Task-1 开发记录（角色A）
+# Task-6 开发记录（角色A）
 
-**PR / Task：** Dev-2 Task 1 预警判定与降噪聚合  
-**分支：** `dev-2/feature/task1-alarm-engine`  
-**需求：** `docs/superpowers/plans/Dev-2-task1-alarm-engine.md`
+**PR / Task：** Dev-2 Task 6 工单状态机与智能派单  
+**分支：** `dev-2/feature/task6-workorder`  
+**需求：** `docs/superpowers/plans/Dev-2-task6-workorder.md`
 
 ## 测试用例
 
 | 用例 | 行为 |
 |---|---|
-| `test_judge_frost_red` | frost → 4 |
-| `test_judge_corrosion_yellow` | corrosion → 2 |
-| `test_dedup_key_stable` | key 稳定 |
-| `test_frost_high` | high → 4 |
-| `test_schema_type_frost_maps_freeze` | frost/imbalance/steal 入库词表 |
-| `test_handle_skips_missing_station_id` | 缺站号 skip |
-| `test_handle_skips_blank_alarm_type` | 缺类型 skip |
-| `test_handle_skips_unknown_alarm_type` | 未知类型 skip |
-| `test_handle_dedup_when_nx_fails` | SET NX 失败则跳过 |
-| `test_handle_inserts_schema_type_and_publishes` | 入库 freeze 并投递短信 |
-| `test_handle_db_failure_releases_dedup_key` | 入库失败释放锁 |
-| `test_handle_sms_failure_keeps_row_and_key` | 短信失败保留行和窗口 |
-| `test_handle_frost_string_level` | frost + high → 4 |
-| `test_handle_non_frost_string_level_uses_type_table` | corrosion + high → 2 |
-| `test_dispatch_commits_on_ok_skip_dedup` | 成功状态提交 offset |
-| `test_dispatch_retries_error_then_commits` | error 不提交，重试后提交 |
-| `test_dispatch_commits_undecodable_payload` | 坏 JSON skip 并提交 |
-| `test_consumer_has_main_guard` | `__main__` + `enable_auto_commit=False` |
+| `test_create_and_get` | 由预警创建工单，返回 id>0，查询 status≥0 |
+| `test_create_writes_repair_and_pending` | INSERT 写 `order_type=repair`、`status=0` |
+| `test_get_order_missing_returns_empty` | 不存在的工单返回 `{}` |
+| `test_workorder_create_validates` | `alarmId=0` 或空 assignee → 40001 |
+| `test_workorder_get_not_found` | GET 不存在 → 40002 |
+| `test_workorder_create_and_get_via_api` | POST 成功返回 orderId，GET 返回 status/alarm_id/assignee |
 
 ## 实现进度
 
-- `handle_alarm`：校验、SET NX 占窗、入库失败回滚 key、SMS 失败只记日志
-- `dispatch_record`：手动提交 offset；`error` 退避重试同一条
-- 启动：`cd src/python && python -m consumers.alarm_consumer`
+- `create_from_alarm`：参数化 INSERT，`order_type='repair'`，`status=0`
+- `get_order`：按 `order_id` 查询，无行返回 `{}`
+- `POST /api/workorder/create`、`GET /api/workorder/{order_id}`；无巡检路由，不 import 预警服务
 
 ## Commit
 
 | hash | message |
 |---|---|
-| `c7a7b42` | `feat(4.1): 预警判定与降噪聚合、Kafka 消费` |
-| `eb843b4` | `docs(task-1): 补齐自验证快照，阶段标记为待审查` |
-| `8ff6fb3` | `fix(task-1): review反馈 - 消费循环隔离、去重回滚与类型映射` |
-| `d550e2c` | `docs(task-1): 审查回复，阶段改为待二次审查` |
+| `44dbeb4` | `feat(9.x): 工单状态机与智能派单` |
 
 ## 问题与处理
 
-- SET NX + 入库失败 DELETE，二次审查已接受相对「先 INSERT」的偏差。
-- P2-R1：自动提交会在 INSERT 失败后丢消息；改为手动提交。
-- kill -9 在 SET NX 与 INSERT 之间最多留下 300s 窗口（P3-R3，接受）。
+- 计划中的 `test_create_and_get` 会打真实 MySQL；与 Task 1 一致，用 `_FakeSession` 注入，避免本机无库时无法红绿。
+- `tests/test_scaffold.py` 空桩断言会在填充路由后失败。索引文档要求在 main 上单独 chore，本分支不改该文件。
