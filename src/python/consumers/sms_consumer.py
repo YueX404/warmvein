@@ -42,6 +42,7 @@ def handle_notify(msg, send=None):
             "level": msg.get("level"),
             "type": msg.get("alarmType"),
             "stationName": msg.get("stationName", msg.get("station_id", "")),
+            "leaderPhone": msg.get("leaderPhone") or "请登录平台",
         },
     )
     return "ok"
@@ -72,7 +73,7 @@ def consume():
         SMS_NOTIFY_TOPIC,
         bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
         group_id="sms_consumer",
-        auto_offset_reset="latest",
+        auto_offset_reset="earliest",
         enable_auto_commit=False,
     )
     for msg in consumer:

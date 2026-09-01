@@ -208,6 +208,7 @@ def test_consumer_has_main_guard():
     assert "SMS_NOTIFY_TOPIC" in text
     assert "enable_auto_commit=False" in text
     assert "ALARM_NOTICE" not in text
+    assert 'auto_offset_reset="earliest"' in text
 
 
 class _FakeMsg:
@@ -281,3 +282,66 @@ def test_dispatch_commits_undecodable_payload():
     result = dispatch_record(_FakeMsg(b"not-json"), kafka, handle=lambda _: "ok")
     assert result == "skip"
     assert kafka.commits == 1
+
+
+ALARM_RED_TPL = "【暖脉供热】{stationName}紧急预警(红色)，需立即到场！联系人:{leaderPhone}"
+
+
+def test_handle_red_fills_leader_phone_fallback():
+    sent, send = _capture_send()
+    result = handle_notify(
+        {"level": 4, "phone": "13812341234", "stationName": "一号站"},
+        send=send,
+    )
+    assert result == "ok"
+    content = build_content(ALARM_RED_TPL, sent[0]["vars"])
+    assert "{leaderPhone}" not in content
+    assert "请登录平台" in content
+
+
+def test_handle_red_uses_leader_phone_from_payload():
+    sent, send = _capture_send()
+    handle_notify(
+        {
+            "level": 4,
+            "phone": "13812341234",
+            "stationName": "一号站",
+            "leaderPhone": "13900001111",
+        },
+        send=send,
+    )
+    content = build_content(ALARM_RED_TPL, sent[0]["vars"])
+    assert "13900001111" in content
+
+
+class _BoomThenOkSender:
+    def __init__(self):
+        self.calls = 0
+
+    def _do_send(self, phone, content):
+        self.calls += 1
+        if self.calls < 3:
+            raise RuntimeError("gateway timeout")
+        return {"success": True, "bizId": "recovered"}
+
+
+class _AlwaysBoomSender:
+    def _do_send(self, phone, content):
+        raise RuntimeError("gateway down")
+
+
+def test_send_sms_retries_when_do_send_raises():
+    sender = _BoomThenOkSender()
+    _, session, _, _, slept = _send(["13812341234"], sender=sender)
+    assert sender.calls == 3
+    assert session.rows[0]["st"] == 2
+    assert session.rows[0]["r"] == "recovered"
+    assert slept == [1, 2]
+
+
+def test_send_sms_logs_fail_when_do_send_always_raises():
+    _, session, redis, _, slept = _send(["13812341234"], sender=_AlwaysBoomSender())
+    assert session.rows[0]["st"] == 3
+    assert session.rows[0]["e"] == "RuntimeError"
+    assert "sms:limit:13812341234" not in redis.data
+    assert slept == [1, 2]

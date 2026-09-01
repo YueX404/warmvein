@@ -50,12 +50,12 @@ def is_mobile(phone) -> bool:
     return isinstance(phone, str) and len(phone) == 11 and phone.isdigit()
 
 
-def _write_log(session_factory, batch_id, phone, template_code, content, status, receipt, retry_count):
+def _write_log(session_factory, batch_id, phone, template_code, content, status, receipt, retry_count, error_msg=""):
     with session_factory() as session:
         session.execute(text(
             "INSERT INTO biz_sms_log(batch_id, phone_masked, template_code, content, "
-            "status, receipt, retry_count, created_at) "
-            "VALUES(:b,:pm,:t,:c,:st,:r,:rc,NOW())"
+            "status, receipt, error_msg, retry_count, created_at) "
+            "VALUES(:b,:pm,:t,:c,:st,:r,:e,:rc,NOW())"
         ), {
             "b": batch_id,
             "pm": mask_phone(phone),
@@ -63,6 +63,7 @@ def _write_log(session_factory, batch_id, phone, template_code, content, status,
             "c": content,
             "st": status,
             "r": receipt,
+            "e": error_msg,
             "rc": retry_count,
         })
         session.commit()
@@ -110,11 +111,17 @@ def _send_one(phone, content, template_code, batch_id, cache, session_factory, s
         return
     result = {"success": False}
     retry_count = 0
+    error_msg = ""
     for attempt in range(RETRY_TIMES):
-        result = sender._do_send(phone, content)
+        try:
+            result = sender._do_send(phone, content)
+        except Exception as exc:
+            result = {"success": False}
+            error_msg = type(exc).__name__
         if result.get("success"):
             cache.incr(key)
             cache.expire(key, LIMIT_TTL_SEC)
+            error_msg = ""
             break
         retry_count = attempt + 1
         if attempt < RETRY_TIMES - 1:
@@ -122,5 +129,5 @@ def _send_one(phone, content, template_code, batch_id, cache, session_factory, s
     status = STATUS_SUCCESS if result.get("success") else STATUS_FAIL
     _write_log(
         session_factory, batch_id, phone, template_code, content,
-        status, result.get("bizId", ""), retry_count,
+        status, result.get("bizId", ""), retry_count, error_msg,
     )
