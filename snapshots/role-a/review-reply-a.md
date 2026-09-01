@@ -33,3 +33,16 @@
 
 - `pytest tests/test_sms_routes.py tests/test_sms_service.py tests/test_scaffold.py -v` → 43 passed
 - `npx vue-tsc --noEmit`（`web/`）→ exit 0
+
+审查修复提交：`86727da`。文档提交：`9176680`、`f48a753`。
+
+## 二次审查（2026-09-01）
+
+来源：`snapshots/role-a/review-feedback-a.md`（二次）。结论：✅ 通过，建议合入。首轮 🟡 1–6 全部关闭。
+
+| 编号 | 处理 | 说明 |
+|---|---|---|
+| 🔵1 | 修复 | Commit 表补 `f48a753`。 |
+| 🔵2 | 保留 | 蓝/黄/橙/公众目录圆点配色 follow-up，不在合入前改。 |
+| 🔵3 | 保留 | 发送前前端不预拦非法号/超量；后端 40001 + 拦截器，不假成功。 |
+
