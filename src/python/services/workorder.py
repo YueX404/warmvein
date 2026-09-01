@@ -2,21 +2,36 @@ from sqlalchemy import text
 
 from db import SessionLocal
 
+_INSERT_ORDER = (
+    "INSERT INTO biz_work_order(alarm_id, assignee, order_type, status, created_at, updated_at) "
+    "VALUES(:a,:as,'repair',0,NOW(),NOW())"
+)
+_SELECT_ORDER = (
+    "SELECT order_id, alarm_id, assignee, status, created_at, updated_at "
+    "FROM biz_work_order WHERE order_id=:o"
+)
+_SELECT_TRACE = (
+    "SELECT action, operator, created_at FROM biz_work_order_trace "
+    "WHERE order_id=:o ORDER BY created_at, trace_id"
+)
+
 
 def create_from_alarm(alarm_id: int, assignee: str) -> int:
     with SessionLocal() as s:
-        r = s.execute(text(
-            "INSERT INTO biz_work_order(alarm_id, assignee, order_type, status, created_at, updated_at) "
-            "VALUES(:a,:as,'repair',0,NOW(),NOW())"
-        ), {"a": alarm_id, "as": assignee})
+        r = s.execute(text(_INSERT_ORDER), {"a": alarm_id, "as": assignee})
+        oid = r.lastrowid
+        if not oid:
+            raise RuntimeError("work order insert returned no id")
         s.commit()
-        return r.lastrowid
+        return oid
 
 
 def get_order(order_id: int) -> dict:
     with SessionLocal() as s:
-        row = s.execute(text(
-            "SELECT order_id, alarm_id, assignee, status, created_at, updated_at "
-            "FROM biz_work_order WHERE order_id=:o"
-        ), {"o": order_id}).mappings().first()
-        return dict(row) if row else {}
+        row = s.execute(text(_SELECT_ORDER), {"o": order_id}).mappings().first()
+        if not row:
+            return {}
+        traces = s.execute(text(_SELECT_TRACE), {"o": order_id}).mappings().all()
+        out = dict(row)
+        out["trace"] = [dict(t) for t in traces]
+        return out

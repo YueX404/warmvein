@@ -8,9 +8,10 @@ from services import workorder
 
 
 class _FakeResult:
-    def __init__(self, lastrowid=None, row=None):
+    def __init__(self, lastrowid=None, row=None, rows=None):
         self.lastrowid = lastrowid
         self._row = row
+        self._rows = rows if rows is not None else ([row] if row else [])
 
     def mappings(self):
         return self
@@ -18,16 +19,28 @@ class _FakeResult:
     def first(self):
         return self._row
 
+    def all(self):
+        return self._rows
+
 
 class _FakeSession:
     def __init__(self):
         self.inserted = None
         self.store = {}
+        self.traces = {}
         self.next_id = 1
 
     def execute(self, stmt, params):
         sql = str(stmt)
         if "INSERT" in sql:
+            if "biz_work_order_trace" in sql:
+                oid = params["o"]
+                self.traces.setdefault(oid, []).append({
+                    "action": params["act"],
+                    "operator": params["op"],
+                    "created_at": datetime(2026, 9, 1, 12, 0, 0),
+                })
+                return _FakeResult()
             oid = self.next_id
             self.next_id += 1
             now = datetime(2026, 9, 1, 12, 0, 0)
@@ -42,6 +55,8 @@ class _FakeSession:
             self.inserted = {"sql": sql, "params": params}
             return _FakeResult(lastrowid=oid)
         if "SELECT" in sql:
+            if "biz_work_order_trace" in sql:
+                return _FakeResult(rows=self.traces.get(params["o"], []))
             return _FakeResult(row=self.store.get(params["o"]))
         raise AssertionError(sql)
 
@@ -68,8 +83,10 @@ def test_create_writes_repair_and_pending():
     session = _FakeSession()
     with patch.object(workorder, "SessionLocal", lambda: session):
         workorder.create_from_alarm(alarm_id=9, assignee="李四")
-    assert "'repair'" in session.inserted["sql"]
-    assert session.store[1]["status"] == 0
+    sql = session.inserted["sql"]
+    assert "status" in sql
+    assert "'repair'" in sql
+    assert ",0," in sql.replace(" ", "")
     assert session.inserted["params"] == {"a": 9, "as": "李四"}
 
 
@@ -106,7 +123,15 @@ def test_workorder_create_and_get_via_api():
         assert oid > 0
         got = c.get(f"/api/workorder/{oid}")
     body = got.json()
+    data = body["data"]
     assert body["code"] == 0
-    assert body["data"]["status"] == 0
-    assert body["data"]["alarm_id"] == 3
-    assert body["data"]["assignee"] == "王五"
+    assert data["orderId"] == oid
+    assert data["alarmId"] == 3
+    assert data["assignee"] == "王五"
+    assert data["status"] == 0
+    assert data["statusName"] == "待派"
+    assert data["createdAt"]
+    assert data["updatedAt"]
+    assert isinstance(data["trace"], list)
+    assert "alarm_id" not in data
+    assert "order_id" not in data
